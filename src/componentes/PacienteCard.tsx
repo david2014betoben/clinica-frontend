@@ -1,13 +1,23 @@
+import type { ChangeEvent } from "react";
 import type { Paciente, EstadoPaciente } from "../types/paciente";
 import { BadgeEstado } from "./BadgeEstado";
 
 interface PacienteCardProps {
   paciente: Paciente;
   onCambiarEstado: (id: string, estado: EstadoPaciente) => void;
+  onEliminar: (id: string) => void;
 }
 
-export function PacienteCard({ paciente, onCambiarEstado }: PacienteCardProps) {
+export function PacienteCard({
+  paciente,
+  onCambiarEstado,
+  onEliminar,
+}: PacienteCardProps) {
   const nombreCompleto = `${paciente.nombre} ${paciente.apellido}`;
+
+  const handleEstadoChange = (evento: ChangeEvent<HTMLSelectElement>) => {
+    onCambiarEstado(paciente.id, evento.target.value as EstadoPaciente);
+  };
 
   return (
     <article className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
@@ -48,7 +58,7 @@ export function PacienteCard({ paciente, onCambiarEstado }: PacienteCardProps) {
         </p>
       </div>
 
-      <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-700">
+      <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-700">
         <label className="flex items-center justify-between gap-3 text-sm">
           <span className="font-medium text-slate-600 dark:text-slate-300">
             Cambiar estado:
@@ -56,12 +66,7 @@ export function PacienteCard({ paciente, onCambiarEstado }: PacienteCardProps) {
 
           <select
             value={paciente.estado}
-            onChange={(evento) =>
-              onCambiarEstado(
-                paciente.id,
-                evento.target.value as EstadoPaciente,
-              )
-            }
+            onChange={handleEstadoChange}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
           >
             <option value="activo">Activo</option>
@@ -69,6 +74,14 @@ export function PacienteCard({ paciente, onCambiarEstado }: PacienteCardProps) {
             <option value="inactivo">Inactivo</option>
           </select>
         </label>
+
+        <button
+          type="button"
+          onClick={() => onEliminar(paciente.id)}
+          className="self-end rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+        >
+          Eliminar
+        </button>
       </div>
     </article>
   );

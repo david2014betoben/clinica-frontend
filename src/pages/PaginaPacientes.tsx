@@ -44,6 +44,7 @@ export function PaginaPacientes() {
   const [nuevoPaciente, setNuevoPaciente] = useState<DatosNuevoPaciente>(
     crearFormularioInicial,
   );
+  const [errorFormulario, setErrorFormulario] = useState("");
 
   const pacientesFiltrados = useMemo(() => {
     const termino = busqueda.toLowerCase().trim();
@@ -73,16 +74,36 @@ export function PaginaPacientes() {
     );
   };
 
+  const eliminarPaciente = (id: string) => {
+    const confirmado = window.confirm(
+      "¿Seguro que deseas eliminar este paciente?",
+    );
+
+    if (!confirmado) return;
+
+    setPacientes((anteriores) =>
+      anteriores.filter((paciente) => paciente.id !== id),
+    );
+  };
+
   const agregarPaciente = (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
 
+    if (!nuevoPaciente.nombre.trim() || !nuevoPaciente.email.trim()) {
+      setErrorFormulario("Nombre y email son obligatorios");
+      return;
+    }
+
     const pacienteCreado: Paciente = {
       ...nuevoPaciente,
+      nombre: nuevoPaciente.nombre.trim(),
+      email: nuevoPaciente.email.trim(),
       id: `pac-${Date.now()}`,
     };
 
-    setPacientes((anteriores) => [pacienteCreado, ...anteriores]);
+    setPacientes((anteriores) => [...anteriores, pacienteCreado]);
     setNuevoPaciente(crearFormularioInicial());
+    setErrorFormulario("");
     setMostrarFormulario(false);
   };
 
@@ -120,9 +141,24 @@ export function PaginaPacientes() {
           />
         </section>
 
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Pacientes encontrados: {pacientesFiltrados.length}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {pacientesFiltrados.length}{" "}
+            {pacientesFiltrados.length === 1 ? "paciente" : "pacientes"}{" "}
+            {pacientesFiltrados.length === 1 ? "encontrado" : "encontrados"}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setBusqueda("");
+              setEstadoSeleccionado("todos");
+            }}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+          >
+            Limpiar filtros
+          </button>
+        </div>
 
         {pacientesFiltrados.length > 0 ? (
           <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -131,6 +167,7 @@ export function PaginaPacientes() {
                 key={paciente.id}
                 paciente={paciente}
                 onCambiarEstado={cambiarEstado}
+                onEliminar={eliminarPaciente}
               />
             ))}
           </section>
@@ -275,6 +312,11 @@ export function PaginaPacientes() {
                 </div>
 
                 <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
+                  {errorFormulario && (
+                    <p className="text-sm text-red-600" role="alert">
+                      {errorFormulario}
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => setMostrarFormulario(false)}

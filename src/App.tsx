@@ -1,8 +1,8 @@
-import { PaginaDashboard } from "./pages/PaginaDashboard";
+import { PaginaPacientes } from "./pages/PaginaPacientes";
 import "./App.css";
 
 function App() {
-  return <PaginaDashboard />;
+  return <PaginaPacientes />;
 }
 
 export default App;

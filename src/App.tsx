@@ -1,8 +1,8 @@
-import { PaginaPacientes } from "./pages/PaginaPacientes";
+import { FormularioCita } from "./componentes/FormularioCita";
 import "./App.css";
 
 function App() {
-  return <PaginaPacientes />;
+  return <FormularioCita />;
 }
 
 export default App;

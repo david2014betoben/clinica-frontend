@@ -1,7 +1,6 @@
 import type { ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import type { EstadoPaciente, Paciente } from "../types/paciente";
-import { BadgeEstado } from "./BadgeEstado";
 
 interface PacienteCardProps {
   paciente: Paciente;
@@ -9,66 +8,104 @@ interface PacienteCardProps {
   onEliminar: (id: string) => void;
 }
 
+const estilosEstado: Record<
+  EstadoPaciente,
+  { texto: string; clases: string; punto: string }
+> = {
+  activo: {
+    texto: "Activo",
+    clases:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+    punto: "bg-emerald-500",
+  },
+  en_espera: {
+    texto: "En espera",
+    clases:
+      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+    punto: "bg-amber-500",
+  },
+  inactivo: {
+    texto: "Inactivo",
+    clases:
+      "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    punto: "bg-slate-400",
+  },
+};
+
 export function PacienteCard({
   paciente,
   onCambiarEstado,
   onEliminar,
 }: PacienteCardProps) {
   const nombreCompleto = `${paciente.nombre} ${paciente.apellido}`;
+  const iniciales = `${paciente.nombre.charAt(0)}${paciente.apellido.charAt(0)}`;
+  const estado = estilosEstado[paciente.estado];
 
   const handleEstadoChange = (evento: ChangeEvent<HTMLSelectElement>) => {
     onCambiarEstado(paciente.id, evento.target.value as EstadoPaciente);
   };
 
   return (
-    <article className="flex h-full min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-4 flex min-w-0 flex-col items-start gap-3">
-        <div className="min-w-0 w-full">
-          <h2 className="break-words text-lg font-semibold text-slate-900 dark:text-white">
-            {nombreCompleto}
-          </h2>
+    <article className="group flex h-full min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-indigo-700">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 text-sm font-bold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+            {iniciales}
+          </div>
 
-          <p className="mt-1 break-words text-sm text-indigo-600 dark:text-indigo-400">
-            {paciente.especialidadAsignada}
+          <div className="min-w-0">
+            <h2
+              title={nombreCompleto}
+              className="truncate text-base font-semibold text-slate-900 transition group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300"
+            >
+              {nombreCompleto}
+            </h2>
+            <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
+              {paciente.email}
+            </p>
+          </div>
+        </div>
+
+        <span
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${estado.clases}`}
+        >
+          <span className={`size-1.5 rounded-full ${estado.punto}`} />
+          {estado.texto}
+        </span>
+      </div>
+
+      <div className="mt-4">
+        <span className="inline-block max-w-full truncate rounded-md border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
+          {paciente.especialidadAsignada}
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm dark:border-slate-800">
+        <div>
+          <p className="text-xs font-medium text-slate-400">Teléfono</p>
+          <p className="mt-0.5 break-words text-slate-700 dark:text-slate-200">
+            {paciente.telefono}
           </p>
         </div>
 
-        <BadgeEstado estado={paciente.estado} />
+        <div>
+          <p className="text-xs font-medium text-slate-400">Última cita</p>
+          <p className="mt-0.5 text-slate-700 dark:text-slate-200">
+            {paciente.ultimaCita}
+          </p>
+        </div>
       </div>
 
-      <div className="min-w-0 space-y-3 border-t border-slate-100 pt-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-        <p className="min-w-0">
-          <span className="font-medium text-slate-800 dark:text-slate-100">
-            Correo:
-          </span>
-          <span className="mt-1 block break-all">{paciente.email}</span>
-        </p>
-
-        <p className="min-w-0 break-words">
-          <span className="font-medium text-slate-800 dark:text-slate-100">
-            Teléfono:
-          </span>{" "}
-          {paciente.telefono}
-        </p>
-
-        <p className="min-w-0 break-words">
-          <span className="font-medium text-slate-800 dark:text-slate-100">
-            Última cita:
-          </span>{" "}
-          {paciente.ultimaCita}
-        </p>
-      </div>
-
-      <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-700">
-        <label className="flex min-w-0 flex-col gap-2 text-sm">
-          <span className="font-medium text-slate-600 dark:text-slate-300">
-            Cambiar estado:
+      <div className="mt-auto border-t border-slate-100 pt-4 dark:border-slate-800">
+        <label className="flex items-center justify-between gap-3">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Cambiar estado
           </span>
 
           <select
             value={paciente.estado}
             onChange={handleEstadoChange}
-            className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+            className="min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
           >
             <option value="activo">Activo</option>
             <option value="en_espera">En espera</option>
@@ -76,21 +113,24 @@ export function PacienteCard({
           </select>
         </label>
 
-        <button
-          type="button"
-          onClick={() => onEliminar(paciente.id)}
-          className="self-end rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
-        >
-          Eliminar
-        </button>
-      </div>
+        <div className="mt-3 flex items-center gap-2">
+          <Link
+            to={`/pacientes/${paciente.id}`}
+            className="flex-1 rounded-lg bg-indigo-50 px-3 py-2 text-center text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-950"
+          >
+            Ver detalle <span aria-hidden="true">→</span>
+          </Link>
 
-      <Link
-        to={`/pacientes/${paciente.id}`}
-        className="mt-4 inline-flex font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-      >
-        Ver detalle →
-      </Link>
+          <button
+            type="button"
+            onClick={() => onEliminar(paciente.id)}
+            aria-label={`Eliminar a ${nombreCompleto}`}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-900 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
     </article>
   );
 }

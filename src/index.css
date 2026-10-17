@@ -109,4 +109,52 @@ code {
   background: var(--code-bg);
 }
 
+.glow-orb {
+  border-radius: 9999px;
+  filter: blur(24px);
+  animation: glow-drift 7s ease-in-out infinite;
+}
+
+.glow-orb-indigo {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.2), transparent 70%);
+}
+
+.glow-orb-rose {
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.14), transparent 70%);
+  animation-delay: -3s;
+}
+
+@keyframes glow-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.95);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: translate3d(10px, -12px, 0) scale(1.08);
+    opacity: 1;
+  }
+}
+
+.ecg-sweep {
+  stroke-dasharray: 100 1000;
+  stroke-dashoffset: 700;
+  animation: ecg-travel 2.8s linear infinite;
+  filter: drop-shadow(0 0 7px rgba(99, 102, 241, 0.75));
+}
+
+@keyframes ecg-travel {
+  to {
+    stroke-dashoffset: -700;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-orb,
+  .ecg-sweep {
+    animation: none;
+  }
+}
+
 @import "tailwindcss";

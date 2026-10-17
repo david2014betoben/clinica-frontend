@@ -21,6 +21,23 @@ function obtenerHoraLocal(): string {
   return `${horas}:${minutos}`;
 }
 
+const urgencias: Array<{
+  valor: CitaFormData["urgencia"];
+  etiqueta: string;
+  punto: string;
+}> = [
+  { valor: "baja", etiqueta: "Baja", punto: "bg-emerald-500" },
+  { valor: "media", etiqueta: "Media", punto: "bg-amber-500" },
+  { valor: "alta", etiqueta: "Alta", punto: "bg-orange-500" },
+  { valor: "critica", etiqueta: "Crítica", punto: "bg-rose-500" },
+];
+
+const clasesControl =
+  "w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:ring-2 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500";
+
+const clasesLabel =
+  "mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300";
+
 export function FormularioCita() {
   const { medicos, cargando } = useMedicos();
   const [citaConfirmada, setCitaConfirmada] = useState<CitaFormData | null>(
@@ -46,6 +63,8 @@ export function FormularioCita() {
   });
 
   const fechaSeleccionada = watch("fecha");
+  const urgenciaSeleccionada = watch("urgencia");
+  const motivoSeleccionado = watch("motivo") ?? "";
 
   async function onSubmit(datos: CitaFormData) {
     await new Promise<void>((resolve) => {
@@ -65,260 +84,304 @@ export function FormularioCita() {
   );
 
   if (citaConfirmada) {
-    return (
-      <section className="mx-auto max-w-2xl rounded-2xl border border-green-200 bg-white p-6 text-slate-900 shadow dark:border-green-900 dark:bg-slate-900 dark:text-slate-100">
-        <h2 className="text-2xl font-bold text-green-700 dark:text-green-400">
-          ¡Cita agendada!
-        </h2>
+    const fechaFormateada = new Date(
+      `${citaConfirmada.fecha}T00:00:00`,
+    ).toLocaleDateString("es-BO", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
 
-        <dl className="mt-5 space-y-3 text-slate-700 dark:text-slate-300">
+    return (
+      <section className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-900 dark:bg-slate-900 sm:p-7">
+        <div className="flex items-start gap-4">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-xl font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            ✓
+          </div>
+
           <div>
-            <dt className="font-semibold text-slate-900 dark:text-white">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Confirmación
+            </p>
+            <h2 className="mt-1 text-xl font-bold text-slate-950 dark:text-white">
+              ¡Cita agendada con éxito!
+            </h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Revisa los datos de la cita que acabas de registrar.
+            </p>
+          </div>
+        </div>
+
+        <dl className="mt-6 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2 dark:border-slate-800">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
               Paciente
             </dt>
-            <dd>{citaConfirmada.pacienteNombre}</dd>
-          </div>
-
-          <div>
-            <dt className="font-semibold text-slate-900 dark:text-white">
-              Médico
-            </dt>
-            <dd>{medicoSeleccionado?.nombre ?? "Médico seleccionado"}</dd>
-          </div>
-
-          <div>
-            <dt className="font-semibold text-slate-900 dark:text-white">
-              Fecha y hora
-            </dt>
-            <dd>
-              {citaConfirmada.fecha} a las {citaConfirmada.hora}
+            <dd className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+              {citaConfirmada.pacienteNombre}
             </dd>
           </div>
 
           <div>
-            <dt className="font-semibold text-slate-900 dark:text-white">
-              Motivo
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Médico
             </dt>
-            <dd>{citaConfirmada.motivo}</dd>
+            <dd className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+              {medicoSeleccionado?.nombre ?? "Médico seleccionado"}
+            </dd>
+            {medicoSeleccionado?.especialidad && (
+              <dd className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                {medicoSeleccionado.especialidad}
+              </dd>
+            )}
           </div>
 
           <div>
-            <dt className="font-semibold text-slate-900 dark:text-white">
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Fecha y hora
+            </dt>
+            <dd className="mt-1 font-medium text-slate-900 dark:text-slate-100">
+              {fechaFormateada} · {citaConfirmada.hora}
+            </dd>
+          </div>
+
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
               Urgencia
             </dt>
-            <dd className="capitalize">{citaConfirmada.urgencia}</dd>
+            <dd className="mt-1 font-medium capitalize text-slate-900 dark:text-slate-100">
+              {citaConfirmada.urgencia}
+            </dd>
+          </div>
+
+          <div className="sm:col-span-2">
+            <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Motivo
+            </dt>
+            <dd className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
+              {citaConfirmada.motivo}
+            </dd>
           </div>
         </dl>
 
-        <button
-          type="button"
-          onClick={agendarOtraCita}
-          className="mt-6 rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-        >
-          Agendar otra cita
-        </button>
+        <div className="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={agendarOtraCita}
+            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20"
+          >
+            Agendar otra cita
+          </button>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-        Nueva cita
-      </h1>
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7">
+      <div className="mb-6 border-b border-slate-100 pb-5 dark:border-slate-800">
+        <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
+          Datos de la cita
+        </h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Los campos marcados son necesarios para agendar.
+        </p>
+      </div>
 
-      <p className="mt-1 text-slate-600 dark:text-slate-300">
-        Completa los datos para agendar una cita médica.
-      </p>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-5">
-        <div>
-          <label
-            htmlFor="pacienteNombre"
-            className="mb-1 block font-medium text-slate-700 dark:text-slate-200"
-          >
-            Nombre del paciente
-          </label>
-
-          <input
-            id="pacienteNombre"
-            {...register("pacienteNombre")}
-            className={`w-full rounded-lg border bg-white px-3 py-2 text-slate-900 outline-none dark:bg-slate-800 dark:text-white ${
-              errors.pacienteNombre
-                ? "border-red-500"
-                : "border-slate-300 dark:border-slate-600"
-            }`}
-          />
-
-          {errors.pacienteNombre && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-              {errors.pacienteNombre.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="medicoId"
-            className="mb-1 block font-medium text-slate-700 dark:text-slate-200"
-          >
-            Médico
-          </label>
-
-          <select
-            id="medicoId"
-            {...register("medicoId")}
-            disabled={cargando}
-            className={`w-full rounded-lg border bg-white px-3 py-2 text-slate-900 outline-none dark:bg-slate-800 dark:text-white ${
-              errors.medicoId
-                ? "border-red-500"
-                : "border-slate-300 dark:border-slate-600"
-            }`}
-          >
-            {cargando ? (
-              <option value="" disabled>
-                Cargando médicos...
-              </option>
-            ) : (
-              <>
-                <option value="">Selecciona un médico</option>
-                {medicos.map((medico) => (
-                  <option key={medico.id} value={medico.id}>
-                    {medico.nombre} — {medico.especialidad}
-                  </option>
-                ))}
-              </>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid gap-5 md:grid-cols-2">
+          <div>
+            <label htmlFor="pacienteNombre" className={clasesLabel}>
+              Nombre del paciente <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="pacienteNombre"
+              placeholder="Escribe el nombre completo"
+              aria-invalid={Boolean(errors.pacienteNombre)}
+              {...register("pacienteNombre")}
+              className={`${clasesControl} ${
+                errors.pacienteNombre
+                  ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/15"
+                  : "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/15 dark:border-slate-700"
+              }`}
+            />
+            {errors.pacienteNombre && (
+              <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+                {errors.pacienteNombre.message}
+              </p>
             )}
-          </select>
+          </div>
 
-          {errors.medicoId && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-              {errors.medicoId.message}
-            </p>
-          )}
+          <div>
+            <label htmlFor="medicoId" className={clasesLabel}>
+              Médico especialista <span className="text-rose-500">*</span>
+            </label>
+            <select
+              id="medicoId"
+              disabled={cargando}
+              aria-invalid={Boolean(errors.medicoId)}
+              {...register("medicoId")}
+              className={`${clasesControl} ${
+                errors.medicoId
+                  ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/15"
+                  : "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/15 dark:border-slate-700"
+              } disabled:cursor-wait disabled:opacity-70`}
+            >
+              {cargando ? (
+                <option value="">Cargando médicos...</option>
+              ) : (
+                <>
+                  <option value="">Selecciona un médico</option>
+                  {medicos.map((medico) => (
+                    <option key={medico.id} value={medico.id}>
+                      {medico.nombre} — {medico.especialidad}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+            {errors.medicoId && (
+              <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+                {errors.medicoId.message}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="fecha" className={clasesLabel}>
+              Fecha de la cita <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="fecha"
+              type="date"
+              min={obtenerFechaLocal()}
+              aria-invalid={Boolean(errors.fecha)}
+              {...register("fecha")}
+              className={`${clasesControl} ${
+                errors.fecha
+                  ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/15"
+                  : "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/15 dark:border-slate-700"
+              }`}
+            />
+            {errors.fecha && (
+              <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+                {errors.fecha.message}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="hora" className={clasesLabel}>
+              Hora de la cita <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="hora"
+              type="time"
+              min={
+                fechaSeleccionada === obtenerFechaLocal()
+                  ? obtenerHoraLocal()
+                  : undefined
+              }
+              aria-invalid={Boolean(errors.hora)}
+              {...register("hora")}
+              className={`${clasesControl} ${
+                errors.hora
+                  ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/15"
+                  : "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/15 dark:border-slate-700"
+              }`}
+            />
+            {errors.hora && (
+              <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+                {errors.hora.message}
+              </p>
+            )}
+          </div>
         </div>
 
         <div>
-          <label
-            htmlFor="fecha"
-            className="mb-1 block font-medium text-slate-700 dark:text-slate-200"
-          >
-            Fecha
-          </label>
-
-          <input
-            id="fecha"
-            type="date"
-            min={obtenerFechaLocal()}
-            {...register("fecha")}
-            className={`w-full rounded-lg border bg-white px-3 py-2 text-slate-900 outline-none dark:bg-slate-800 dark:text-white ${
-              errors.fecha
-                ? "border-red-500"
-                : "border-slate-300 dark:border-slate-600"
-            }`}
-          />
-
-          {errors.fecha && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-              {errors.fecha.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="hora"
-            className="mb-1 block font-medium text-slate-700 dark:text-slate-200"
-          >
-            Hora
-          </label>
-
-          <input
-            id="hora"
-            type="time"
-            min={
-              fechaSeleccionada === obtenerFechaLocal()
-                ? obtenerHoraLocal()
-                : undefined
-            }
-            {...register("hora")}
-            className={`w-full rounded-lg border bg-white px-3 py-2 text-slate-900 outline-none dark:bg-slate-800 dark:text-white ${
-              errors.hora
-                ? "border-red-500"
-                : "border-slate-300 dark:border-slate-600"
-            }`}
-          />
-
-          {errors.hora && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-              {errors.hora.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label
-            htmlFor="motivo"
-            className="mb-1 block font-medium text-slate-700 dark:text-slate-200"
-          >
-            Motivo de la cita
-          </label>
-
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <label htmlFor="motivo" className={clasesLabel}>
+              Motivo de la consulta <span className="text-rose-500">*</span>
+            </label>
+            <span className="shrink-0 text-xs text-slate-400">
+              {motivoSeleccionado.length}/500
+            </span>
+          </div>
           <textarea
             id="motivo"
             rows={4}
+            maxLength={500}
+            placeholder="Describe brevemente el motivo de la cita..."
+            aria-invalid={Boolean(errors.motivo)}
             {...register("motivo")}
-            className={`w-full rounded-lg border bg-white px-3 py-2 text-slate-900 outline-none dark:bg-slate-800 dark:text-white ${
+            className={`${clasesControl} resize-y ${
               errors.motivo
-                ? "border-red-500"
-                : "border-slate-300 dark:border-slate-600"
+                ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/15"
+                : "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/15 dark:border-slate-700"
             }`}
           />
-
           {errors.motivo && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+            <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
               {errors.motivo.message}
             </p>
           )}
         </div>
 
-        <div>
-          <label
-            htmlFor="urgencia"
-            className="mb-1 block font-medium text-slate-700 dark:text-slate-200"
-          >
-            Urgencia
-          </label>
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            Nivel de urgencia <span className="text-rose-500">*</span>
+          </legend>
 
-          <select
-            id="urgencia"
-            {...register("urgencia")}
-            className={`w-full rounded-lg border bg-white px-3 py-2 text-slate-900 outline-none dark:bg-slate-800 dark:text-white ${
-              errors.urgencia
-                ? "border-red-500"
-                : "border-slate-300 dark:border-slate-600"
-            }`}
-          >
-            <option value="baja">Baja</option>
-            <option value="media">Media</option>
-            <option value="alta">Alta</option>
-            <option value="critica">Crítica</option>
-          </select>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {urgencias.map((opcion) => {
+              const seleccionada = urgenciaSeleccionada === opcion.valor;
+
+              return (
+                <label
+                  key={opcion.valor}
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-3 text-sm transition ${
+                    seleccionada
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-800 ring-2 ring-indigo-500/10 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    value={opcion.valor}
+                    {...register("urgencia")}
+                    className="sr-only"
+                  />
+                  <span
+                    className={`size-2.5 shrink-0 rounded-full ${opcion.punto}`}
+                  />
+                  <span className="font-medium">{opcion.etiqueta}</span>
+                </label>
+              );
+            })}
+          </div>
 
           {errors.urgencia && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+            <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
               {errors.urgencia.message}
             </p>
           )}
-        </div>
+        </fieldset>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting ? "Agendando..." : "Agendar cita"}
-        </button>
+        <div className="flex justify-end border-t border-slate-100 pt-5 dark:border-slate-800">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            {isSubmitting && (
+              <span
+                aria-hidden="true"
+                className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+              />
+            )}
+            {isSubmitting ? "Agendando..." : "Agendar cita"}
+          </button>
+        </div>
       </form>
     </section>
   );

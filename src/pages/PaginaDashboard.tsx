@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Metrica } from "../types";
 import { MetricCard } from "../componentes/MetricCard";
 import { StatusBadge } from "../componentes/StatusBadge";
+import { useNavigate } from "react-router-dom";
 
 export function PaginaDashboard() {
   const [pacientes, setPacientes] = useState(128);
@@ -50,6 +51,8 @@ export function PaginaDashboard() {
     },
   ];
 
+  const navigate = useNavigate();
+
   return (
     <main
       className="min-h-screen p-6"
@@ -73,7 +76,17 @@ export function PaginaDashboard() {
           <p className="text-slate-300">Resumen general del sistema</p>
         </div>
 
-        <StatusBadge activo={!mantenimiento} />
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusBadge activo={!mantenimiento} />
+
+          <button
+            type="button"
+            onClick={() => navigate("/pacientes")}
+            className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            Ver Pacientes
+          </button>
+        </div>
       </header>
 
       <button

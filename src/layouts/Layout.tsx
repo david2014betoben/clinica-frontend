@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 type IconoNombre = "dashboard" | "pacientes" | "cita";
 
@@ -51,19 +51,7 @@ const enlaces: Array<{
   { to: "/citas/nueva", texto: "Nueva cita", icono: "cita" },
 ];
 
-function obtenerTituloRuta(pathname: string): string {
-  if (pathname === "/") return "Dashboard";
-  if (pathname === "/pacientes") return "Pacientes";
-  if (pathname.startsWith("/pacientes/")) return "Detalle del paciente";
-  if (pathname === "/citas/nueva") return "Nueva cita";
-
-  return "Página no encontrada";
-}
-
 export function Layout() {
-  const { pathname } = useLocation();
-  const tituloRuta = obtenerTituloRuta(pathname);
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
       <aside className="z-30 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col lg:border-b-0 lg:border-r">

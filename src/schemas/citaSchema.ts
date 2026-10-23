@@ -26,10 +26,9 @@ function esFechaCalendarioValida(fecha: string): boolean {
 
 export const citaSchema = z
   .object({
-    pacienteNombre: z
-      .string()
-      .trim()
-      .min(3, "El nombre del paciente debe tener al menos 3 caracteres"),
+    pacienteId: z.string().regex(/^[1-9]\d*$/, "Debes seleccionar un paciente"),
+
+    pacienteNombre: z.string(),
 
     medicoId: z.string().min(1, "Debes seleccionar un médico"),
 
@@ -45,8 +44,8 @@ export const citaSchema = z
     hora: z
       .string()
       .regex(
-        /^([01]\d|2[0-3]):[0-5]\d$/,
-        "La hora debe estar en formato HH:MM, entre 00:00 y 23:59",
+        /^([01]\d|2[0-3]):(00|30)$/,
+        "Selecciona una hora en intervalos de 30 minutos",
       ),
 
     motivo: z

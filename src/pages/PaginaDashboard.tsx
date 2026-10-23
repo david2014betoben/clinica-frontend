@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import type { Metrica } from "../types";
 import { StatusBadge } from "../componentes/StatusBadge";
 import { api } from "../lib/axios";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 const estilosPorTendencia: Record<
   Metrica["tendencia"],
@@ -24,7 +26,12 @@ const estilosPorTendencia: Record<
   },
 };
 
-type RespuestaListado = { data: unknown[]; total: number } | unknown[];
+type RespuestaListado =
+  | {
+      data: unknown[];
+      total: number;
+    }
+  | unknown[];
 
 interface TotalesDashboard {
   pacientes: number;
@@ -35,6 +42,21 @@ interface TotalesDashboard {
 
 function obtenerTotal(respuesta: RespuestaListado): number {
   return Array.isArray(respuesta) ? respuesta.length : respuesta.total;
+}
+
+function obtenerFechaBolivia(): string {
+  const partes = new Intl.DateTimeFormat("es-BO", {
+    timeZone: "America/La_Paz",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const anio = partes.find((parte) => parte.type === "year")?.value;
+  const mes = partes.find((parte) => parte.type === "month")?.value;
+  const dia = partes.find((parte) => parte.type === "day")?.value;
+
+  return `${anio}-${mes}-${dia}`;
 }
 
 export function PaginaDashboard() {
@@ -48,15 +70,25 @@ export function PaginaDashboard() {
     setError(false);
 
     try {
+      const hoy = obtenerFechaBolivia();
+
       const [pacientes, medicos, programadas, completadas] = await Promise.all([
         api.get<RespuestaListado>("/pacientes", { signal }),
+
         api.get<RespuestaListado>("/medicos", { signal }),
+
         api.get<RespuestaListado>("/citas", {
-          params: { estado: "programada" },
+          params: {
+            estado: "programada",
+          },
           signal,
         }),
+
         api.get<RespuestaListado>("/citas", {
-          params: { estado: "Completada" },
+          params: {
+            estado: "completada",
+            fecha: hoy,
+          },
           signal,
         }),
       ]);
@@ -69,9 +101,10 @@ export function PaginaDashboard() {
         programadas: obtenerTotal(programadas.data),
         completadas: obtenerTotal(completadas.data),
       });
-    } catch {
+    } catch (err: unknown) {
       if (!signal?.aborted) {
         setError(true);
+        toast.error(extraerMensajeError(err));
       }
     } finally {
       if (!signal?.aborted) {
@@ -91,6 +124,7 @@ export function PaginaDashboard() {
   }, [cargarMetricas]);
 
   const fechaActual = new Intl.DateTimeFormat("es-BO", {
+    timeZone: "America/La_Paz",
     dateStyle: "long",
   }).format(new Date());
 
@@ -115,15 +149,15 @@ export function PaginaDashboard() {
       id: "programadas",
       titulo: "Citas programadas",
       valor: totales?.programadas ?? "—",
-      descripcion: "Citas pendientes de atención",
+      descripcion: "Citas pendientes de atención de todas las fechas",
       tendencia: "negativa",
       icono: "📅",
     },
     {
       id: "completadas",
-      titulo: "Citas completadas",
+      titulo: "Completadas hoy",
       valor: totales?.completadas ?? "—",
-      descripcion: "Citas con estado completada",
+      descripcion: "Citas de hoy con estado completada",
       tendencia: "positiva",
       icono: "✅",
     },
@@ -137,6 +171,7 @@ export function PaginaDashboard() {
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
               Dashboard
             </h1>
+
             <StatusBadge activo={!mantenimiento} />
           </div>
 
@@ -149,6 +184,15 @@ export function PaginaDashboard() {
           <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             Hoy, {fechaActual}
           </span>
+
+          <button
+            type="button"
+            disabled={cargando}
+            onClick={() => void cargarMetricas()}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            {cargando ? "Actualizando..." : "Actualizar"}
+          </button>
         </div>
       </header>
 
@@ -197,7 +241,7 @@ export function PaginaDashboard() {
           <button
             type="button"
             aria-pressed={mantenimiento}
-            onClick={() => setMantenimiento((prev) => !prev)}
+            onClick={() => setMantenimiento((actual) => !actual)}
             className={`rounded-lg px-4 py-2 font-semibold text-white transition ${
               mantenimiento
                 ? "bg-emerald-600 hover:bg-emerald-700"
@@ -221,6 +265,7 @@ export function PaginaDashboard() {
               aria-hidden="true"
               className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600"
             />
+
             <span>Cargando métricas...</span>
           </div>
         ) : error ? (
@@ -260,8 +305,8 @@ export function PaginaDashboard() {
                     </h2>
 
                     <span
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-xl ${estilo.icono}`}
                       aria-hidden="true"
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-xl ${estilo.icono}`}
                     >
                       {metrica.icono}
                     </span>

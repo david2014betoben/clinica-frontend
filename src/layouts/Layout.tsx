@@ -48,7 +48,7 @@ const enlaces: Array<{
 }> = [
   { to: "/", texto: "Dashboard", icono: "dashboard" },
   { to: "/pacientes", texto: "Pacientes", icono: "pacientes" },
-  { to: "/citas/nueva", texto: "Nueva cita", icono: "cita" },
+  { to: "/citas", texto: "Citas", icono: "cita" },
 ];
 
 export function Layout() {
@@ -107,7 +107,7 @@ export function Layout() {
             <NavLink
               key={enlace.to}
               to={enlace.to}
-              end={enlace.to === "/"}
+              end={enlace.to === "/" || enlace.to === "/citas"}
               className={({ isActive }) =>
                 [
                   "inline-flex shrink-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",

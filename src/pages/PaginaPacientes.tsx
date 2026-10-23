@@ -2,16 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../lib/axios";
 import { BuscadorPacientes } from "../componentes/BuscadorPacientes";
 import { PacienteCard } from "../componentes/PacienteCard";
-
-interface PacienteAPI {
-  id: number;
-  nombre: string;
-  ap_paterno: string;
-  ap_materno: string | null;
-  email: string;
-  telefono: string;
-  fecha_nacimiento: string;
-}
+import toast from "react-hot-toast";
+import type { PacienteAPI } from "../types/paciente-api";
+import { FormularioPaciente } from "../componentes/FormularioPaciente";
+import { ModalConfirmacion } from "../componentes/ModalConfirmacion";
+import { remove } from "../services/pacientes";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 interface RespuestaPacientes {
   data: PacienteAPI[];
@@ -35,6 +31,10 @@ export function PaginaPacientes() {
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [pacienteAEliminar, setPacienteAEliminar] =
+    useState<PacienteAPI | null>(null);
+  const [eliminando, setEliminando] = useState(false);
 
   const cargarPacientes = useCallback(
     async (signal?: AbortSignal) => {
@@ -55,9 +55,10 @@ export function PaginaPacientes() {
         setPacientes(respuesta.data.data);
         setTotal(respuesta.data.total);
         setTotalPaginas(Math.max(1, respuesta.data.totalPages));
-      } catch {
+      } catch (err: unknown) {
         if (!signal?.aborted) {
           setError(true);
+          toast.error(extraerMensajeError(err));
         }
       } finally {
         if (!signal?.aborted) {
@@ -82,14 +83,66 @@ export function PaginaPacientes() {
     const termino = busqueda.trim().toLowerCase();
 
     return pacientes.filter((paciente) =>
-      [nombreCompleto(paciente), paciente.email, paciente.telefono].some(
-        (valor) => valor.toLowerCase().includes(termino),
-      ),
+      [
+        nombreCompleto(paciente),
+        paciente.email ?? "",
+        paciente.telefono ?? "",
+      ].some((valor) => valor.toLowerCase().includes(termino)),
     );
   }, [pacientes, busqueda]);
 
   const claseBoton =
     "rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
+
+  const pacienteCreado = (paciente: PacienteAPI) => {
+    setPacientes((actuales) => [paciente, ...actuales]);
+    setTotal(total + 1);
+    setTotalPaginas(Math.max(1, Math.ceil((total + 1) / 10)));
+    setBusqueda("");
+  };
+
+  const solicitarEliminacion = (id: string) => {
+    const paciente = pacientes.find((item) => item.id === Number(id));
+
+    if (paciente) {
+      setPacienteAEliminar(paciente);
+    }
+  };
+
+  const confirmarEliminacion = async () => {
+    if (!pacienteAEliminar || eliminando) return;
+
+    setEliminando(true);
+
+    try {
+      await remove(pacienteAEliminar.id);
+    } catch (err: unknown) {
+      toast.error(extraerMensajeError(err));
+      setEliminando(false);
+      return;
+    }
+
+    const nuevoTotal = Math.max(0, total - 1);
+    const nuevasPaginas = Math.max(1, Math.ceil(nuevoTotal / 10));
+
+    setPacientes((actuales) =>
+      actuales.filter((item) => item.id !== pacienteAEliminar.id),
+    );
+    setTotal(nuevoTotal);
+    setTotalPaginas(nuevasPaginas);
+    setPacienteAEliminar(null);
+    setEliminando(false);
+
+    toast.success("Paciente eliminado");
+
+    // Si desapareció la última página, vuelve a una válida.
+    if (pagina > nuevasPaginas) {
+      setPagina(nuevasPaginas);
+    } else {
+      // Completa la página con los registros restantes del servidor.
+      void cargarPacientes();
+    }
+  };
 
   return (
     <main className="min-h-screen w-full bg-slate-50 px-4 py-6 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
@@ -109,6 +162,14 @@ export function PaginaPacientes() {
                 ? "No se pudo consultar el total de pacientes."
                 : `${total} paciente(s) registrado(s)`}
           </p>
+          <button
+            type="button"
+            disabled={cargando || error}
+            onClick={() => setMostrarFormulario(true)}
+            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            + Agregar paciente
+          </button>
         </header>
 
         {cargando ? (
@@ -168,12 +229,13 @@ export function PaginaPacientes() {
                       apellido: [paciente.ap_paterno, paciente.ap_materno]
                         .filter(Boolean)
                         .join(" "),
-                      email: paciente.email,
-                      telefono: paciente.telefono,
+                      email: paciente.email ?? "Sin información",
+                      telefono: paciente.telefono ?? "Sin información",
                       especialidadAsignada: "Sin información",
                       ultimaCita: "Sin información",
                       estado: null,
                     }}
+                    onEliminar={solicitarEliminacion}
                   />
                 ))}
               </section>
@@ -226,6 +288,22 @@ export function PaginaPacientes() {
           </>
         )}
       </div>
+      {mostrarFormulario && (
+        <FormularioPaciente
+          onCreado={pacienteCreado}
+          onCerrar={() => setMostrarFormulario(false)}
+        />
+      )}
+
+      {pacienteAEliminar && (
+        <ModalConfirmacion
+          titulo="Eliminar paciente"
+          mensaje={`¿Deseas eliminar a ${nombreCompleto(pacienteAEliminar)}? Esta acción no se puede deshacer.`}
+          procesando={eliminando}
+          onConfirmar={() => void confirmarEliminacion()}
+          onCancelar={() => setPacienteAEliminar(null)}
+        />
+      )}
     </main>
   );
 }

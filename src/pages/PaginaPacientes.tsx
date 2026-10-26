@@ -1,21 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../lib/axios";
+import { useEffect, useMemo, useState } from "react";
+
 import { BuscadorPacientes } from "../componentes/BuscadorPacientes";
 import { PacienteCard } from "../componentes/PacienteCard";
-import toast from "react-hot-toast";
-import type { PacienteAPI } from "../types/paciente-api";
 import { FormularioPaciente } from "../componentes/FormularioPaciente";
-import { ModalConfirmacion } from "../componentes/ModalConfirmacion";
-import { remove } from "../services/pacientes";
-import { extraerMensajeError } from "../lib/errorHandler";
 
-interface RespuestaPacientes {
-  data: PacienteAPI[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+import { usePacientesStore } from "../stores/pacientesStore";
+import { useFiltrosStore } from "../stores/filtrosStore";
+
+import type { PacienteAPI } from "../types/paciente-api";
 
 function nombreCompleto(paciente: PacienteAPI): string {
   return [paciente.nombre, paciente.ap_paterno, paciente.ap_materno]
@@ -24,60 +16,22 @@ function nombreCompleto(paciente: PacienteAPI): string {
 }
 
 export function PaginaPacientes() {
-  const [pacientes, setPacientes] = useState<PacienteAPI[]>([]);
-  const [total, setTotal] = useState(0);
-  const [pagina, setPagina] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
-  const [busqueda, setBusqueda] = useState("");
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(false);
+  const pacientes = usePacientesStore((state) => state.pacientes);
+  const total = usePacientesStore((state) => state.total);
+  const pagina = usePacientesStore((state) => state.pagina);
+  const totalPaginas = usePacientesStore((state) => state.totalPaginas);
+  const cargando = usePacientesStore((state) => state.cargando);
+  const error = usePacientesStore((state) => state.error);
+  const cargar = usePacientesStore((state) => state.cargar);
+
+  const busqueda = useFiltrosStore((state) => state.queryPacientes);
+  const setBusqueda = useFiltrosStore((state) => state.setQueryPacientes);
+
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [pacienteAEliminar, setPacienteAEliminar] =
-    useState<PacienteAPI | null>(null);
-  const [eliminando, setEliminando] = useState(false);
-
-  const cargarPacientes = useCallback(
-    async (signal?: AbortSignal) => {
-      setCargando(true);
-      setError(false);
-
-      try {
-        const respuesta = await api.get<RespuestaPacientes>("/pacientes", {
-          params: {
-            page: pagina,
-            limit: 10,
-          },
-          signal,
-        });
-
-        if (signal?.aborted) return;
-
-        setPacientes(respuesta.data.data);
-        setTotal(respuesta.data.total);
-        setTotalPaginas(Math.max(1, respuesta.data.totalPages));
-      } catch (err: unknown) {
-        if (!signal?.aborted) {
-          setError(true);
-          toast.error(extraerMensajeError(err));
-        }
-      } finally {
-        if (!signal?.aborted) {
-          setCargando(false);
-        }
-      }
-    },
-    [pagina],
-  );
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    void cargarPacientes(controller.signal);
-
-    return () => {
-      controller.abort();
-    };
-  }, [cargarPacientes]);
+    void cargar(undefined, 1);
+  }, [cargar]);
 
   const pacientesFiltrados = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
@@ -93,56 +47,6 @@ export function PaginaPacientes() {
 
   const claseBoton =
     "rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
-
-  const pacienteCreado = (paciente: PacienteAPI) => {
-    setPacientes((actuales) => [paciente, ...actuales]);
-    setTotal(total + 1);
-    setTotalPaginas(Math.max(1, Math.ceil((total + 1) / 10)));
-    setBusqueda("");
-  };
-
-  const solicitarEliminacion = (id: string) => {
-    const paciente = pacientes.find((item) => item.id === Number(id));
-
-    if (paciente) {
-      setPacienteAEliminar(paciente);
-    }
-  };
-
-  const confirmarEliminacion = async () => {
-    if (!pacienteAEliminar || eliminando) return;
-
-    setEliminando(true);
-
-    try {
-      await remove(pacienteAEliminar.id);
-    } catch (err: unknown) {
-      toast.error(extraerMensajeError(err));
-      setEliminando(false);
-      return;
-    }
-
-    const nuevoTotal = Math.max(0, total - 1);
-    const nuevasPaginas = Math.max(1, Math.ceil(nuevoTotal / 10));
-
-    setPacientes((actuales) =>
-      actuales.filter((item) => item.id !== pacienteAEliminar.id),
-    );
-    setTotal(nuevoTotal);
-    setTotalPaginas(nuevasPaginas);
-    setPacienteAEliminar(null);
-    setEliminando(false);
-
-    toast.success("Paciente eliminado");
-
-    // Si desapareció la última página, vuelve a una válida.
-    if (pagina > nuevasPaginas) {
-      setPagina(nuevasPaginas);
-    } else {
-      // Completa la página con los registros restantes del servidor.
-      void cargarPacientes();
-    }
-  };
 
   return (
     <main className="min-h-screen w-full bg-slate-50 px-4 py-6 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
@@ -162,9 +66,10 @@ export function PaginaPacientes() {
                 ? "No se pudo consultar el total de pacientes."
                 : `${total} paciente(s) registrado(s)`}
           </p>
+
           <button
             type="button"
-            disabled={cargando || error}
+            disabled={cargando || Boolean(error)}
             onClick={() => setMostrarFormulario(true)}
             className="mt-4 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -181,6 +86,7 @@ export function PaginaPacientes() {
               aria-hidden="true"
               className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600"
             />
+
             <span>Cargando pacientes...</span>
           </div>
         ) : error ? (
@@ -192,9 +98,13 @@ export function PaginaPacientes() {
               No se pudieron cargar los pacientes.
             </p>
 
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              {error}
+            </p>
+
             <button
               type="button"
-              onClick={() => void cargarPacientes()}
+              onClick={() => void cargar(undefined, pagina)}
               className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700"
             >
               Reintentar
@@ -235,7 +145,6 @@ export function PaginaPacientes() {
                       ultimaCita: "Sin información",
                       estado: null,
                     }}
-                    onEliminar={solicitarEliminacion}
                   />
                 ))}
               </section>
@@ -262,7 +171,7 @@ export function PaginaPacientes() {
                 disabled={pagina <= 1}
                 onClick={() => {
                   setBusqueda("");
-                  setPagina((actual) => actual - 1);
+                  void cargar(undefined, pagina - 1);
                 }}
                 className={claseBoton}
               >
@@ -278,7 +187,7 @@ export function PaginaPacientes() {
                 disabled={pagina >= totalPaginas}
                 onClick={() => {
                   setBusqueda("");
-                  setPagina((actual) => actual + 1);
+                  void cargar(undefined, pagina + 1);
                 }}
                 className={claseBoton}
               >
@@ -288,21 +197,9 @@ export function PaginaPacientes() {
           </>
         )}
       </div>
-      {mostrarFormulario && (
-        <FormularioPaciente
-          onCreado={pacienteCreado}
-          onCerrar={() => setMostrarFormulario(false)}
-        />
-      )}
 
-      {pacienteAEliminar && (
-        <ModalConfirmacion
-          titulo="Eliminar paciente"
-          mensaje={`¿Deseas eliminar a ${nombreCompleto(pacienteAEliminar)}? Esta acción no se puede deshacer.`}
-          procesando={eliminando}
-          onConfirmar={() => void confirmarEliminacion()}
-          onCancelar={() => setPacienteAEliminar(null)}
-        />
+      {mostrarFormulario && (
+        <FormularioPaciente onCerrar={() => setMostrarFormulario(false)} />
       )}
     </main>
   );

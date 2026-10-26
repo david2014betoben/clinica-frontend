@@ -2,9 +2,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import { create } from "../services/pacientes";
+import { usePacientesStore } from "../stores/pacientesStore";
 import { extraerMensajeError } from "../lib/errorHandler";
-import type { PacienteAPI } from "../types/paciente-api";
 
 const schema = z.object({
   nombre: z.string().trim().min(1, "Ingresa el nombre"),
@@ -30,7 +29,6 @@ const schema = z.object({
 type DatosFormulario = z.infer<typeof schema>;
 
 interface Props {
-  onCreado: (paciente: PacienteAPI) => void;
   onCerrar: () => void;
 }
 
@@ -51,7 +49,8 @@ const campos: {
   },
 ];
 
-export function FormularioPaciente({ onCreado, onCerrar }: Props) {
+export function FormularioPaciente({ onCerrar }: Props) {
+  const crear = usePacientesStore((state) => state.crear);
   const {
     register,
     handleSubmit,
@@ -71,7 +70,7 @@ export function FormularioPaciente({ onCreado, onCerrar }: Props) {
 
   const guardar = async (datos: DatosFormulario) => {
     try {
-      const paciente = await create({
+      await crear({
         nombre: datos.nombre,
         ap_paterno: datos.ap_paterno,
         fecha_nacimiento: datos.fecha_nacimiento,
@@ -80,7 +79,6 @@ export function FormularioPaciente({ onCreado, onCerrar }: Props) {
         ...(datos.telefono ? { telefono: datos.telefono } : {}),
       });
 
-      onCreado(paciente);
       toast.success("Paciente registrado");
       reset();
       onCerrar();

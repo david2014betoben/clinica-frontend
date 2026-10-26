@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-import type { PacienteAPI } from "../types/paciente-api";
-import { getById } from "../services/pacientes";
+
+import { usePacientesStore } from "../stores/pacientesStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { PaginaNotFound } from "./PaginaNotFound";
 
@@ -25,7 +25,10 @@ function formatearFecha(fecha: string | null): string {
 export function PaginaDetallePaciente() {
   const { id } = useParams();
 
-  const [paciente, setPaciente] = useState<PacienteAPI | null>(null);
+  const paciente = usePacientesStore((state) => state.pacienteSeleccionado);
+
+  const cargarDetalle = usePacientesStore((state) => state.cargarDetalle);
+
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noEncontrado, setNoEncontrado] = useState(false);
@@ -45,18 +48,11 @@ export function PaginaDetallePaciente() {
       setCargando(true);
       setError(null);
       setNoEncontrado(false);
-      setPaciente(null);
 
       try {
-        const datos = await getById(Number(id), signal);
-
-        if (!signal?.aborted) {
-          setPaciente(datos);
-        }
+        await cargarDetalle(Number(id), signal);
       } catch (err: unknown) {
         if (signal?.aborted) return;
-
-        const mensaje = extraerMensajeError(err);
 
         if (axios.isAxiosError(err)) {
           if (err.response?.status === 404) {
@@ -65,14 +61,16 @@ export function PaginaDetallePaciente() {
           }
 
           if (err.response?.status === 403) {
-            const mensajePermisos =
+            const mensaje =
               "Tu usuario no tiene permiso para consultar el detalle. Esta operación requiere el rol RECEPCIONISTA.";
 
-            setError(mensajePermisos);
-            toast.error(mensajePermisos);
+            setError(mensaje);
+            toast.error(mensaje);
             return;
           }
         }
+
+        const mensaje = extraerMensajeError(err);
 
         setError(mensaje);
         toast.error(mensaje);
@@ -82,7 +80,7 @@ export function PaginaDetallePaciente() {
         }
       }
     },
-    [id, idValido],
+    [id, idValido, cargarDetalle],
   );
 
   useEffect(() => {
@@ -97,14 +95,21 @@ export function PaginaDetallePaciente() {
     return <PaginaNotFound />;
   }
 
-  const nombreCompleto = paciente
-    ? [paciente.nombre, paciente.ap_paterno, paciente.ap_materno]
+  // Evita mostrar datos de otro paciente durante un cambio de ruta.
+  const pacienteActual = paciente?.id === Number(id) ? paciente : null;
+
+  const nombreCompleto = pacienteActual
+    ? [
+        pacienteActual.nombre,
+        pacienteActual.ap_paterno,
+        pacienteActual.ap_materno,
+      ]
         .filter(Boolean)
         .join(" ")
     : "";
 
-  const iniciales = paciente
-    ? `${paciente.nombre.charAt(0)}${paciente.ap_paterno.charAt(0)}`.toUpperCase()
+  const iniciales = pacienteActual
+    ? `${pacienteActual.nombre.charAt(0)}${pacienteActual.ap_paterno.charAt(0)}`.toUpperCase()
     : "";
 
   return (
@@ -173,7 +178,7 @@ export function PaginaDetallePaciente() {
               Reintentar
             </button>
           </section>
-        ) : paciente ? (
+        ) : pacienteActual ? (
           <>
             <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7">
               <div
@@ -205,9 +210,9 @@ export function PaginaDetallePaciente() {
                     Paciente registrado
                   </p>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="mt-3">
                     <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      ID: {paciente.id}
+                      ID: {pacienteActual.id}
                     </span>
                   </div>
                 </div>
@@ -231,8 +236,9 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Correo electrónico
                     </dt>
+
                     <dd className="mt-1 break-all text-sm font-medium text-slate-800 dark:text-slate-200">
-                      {paciente.email || "Sin información"}
+                      {pacienteActual.email || "Sin información"}
                     </dd>
                   </div>
 
@@ -240,8 +246,9 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Teléfono
                     </dt>
+
                     <dd className="mt-1 break-words text-sm font-medium text-slate-800 dark:text-slate-200">
-                      {paciente.telefono || "Sin información"}
+                      {pacienteActual.telefono || "Sin información"}
                     </dd>
                   </div>
                 </dl>
@@ -263,8 +270,9 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Fecha de nacimiento
                     </dt>
+
                     <dd className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
-                      {formatearFecha(paciente.fecha_nacimiento)}
+                      {formatearFecha(pacienteActual.fecha_nacimiento)}
                     </dd>
                   </div>
 
@@ -272,6 +280,7 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Especialidad asignada
                     </dt>
+
                     <dd className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
                       Sin información
                     </dd>
@@ -281,6 +290,7 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Última cita
                     </dt>
+
                     <dd className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
                       Sin información
                     </dd>

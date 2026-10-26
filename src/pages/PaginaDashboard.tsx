@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
+
 import type { Metrica } from "../types";
 import { StatusBadge } from "../componentes/StatusBadge";
-import { api } from "../lib/axios";
 import { extraerMensajeError } from "../lib/errorHandler";
+import { useDashboardStore } from "../stores/dashboardStore";
 
 const estilosPorTendencia: Record<
   Metrica["tendencia"],
@@ -26,102 +27,26 @@ const estilosPorTendencia: Record<
   },
 };
 
-type RespuestaListado =
-  | {
-      data: unknown[];
-      total: number;
-    }
-  | unknown[];
-
-interface TotalesDashboard {
-  pacientes: number;
-  medicos: number;
-  programadas: number;
-  completadas: number;
-}
-
-function obtenerTotal(respuesta: RespuestaListado): number {
-  return Array.isArray(respuesta) ? respuesta.length : respuesta.total;
-}
-
-function obtenerFechaBolivia(): string {
-  const partes = new Intl.DateTimeFormat("es-BO", {
-    timeZone: "America/La_Paz",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-
-  const anio = partes.find((parte) => parte.type === "year")?.value;
-  const mes = partes.find((parte) => parte.type === "month")?.value;
-  const dia = partes.find((parte) => parte.type === "day")?.value;
-
-  return `${anio}-${mes}-${dia}`;
-}
-
 export function PaginaDashboard() {
   const [mantenimiento, setMantenimiento] = useState(false);
-  const [totales, setTotales] = useState<TotalesDashboard | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(false);
 
-  const cargarMetricas = useCallback(async (signal?: AbortSignal) => {
-    setCargando(true);
-    setError(false);
+  const totales = useDashboardStore((state) => state.totales);
+  const cargando = useDashboardStore((state) => state.cargando);
+  const error = useDashboardStore((state) => state.error);
 
+  const cargarMetricas = useDashboardStore((state) => state.cargarMetricas);
+
+  const actualizarMetricas = useCallback(async () => {
     try {
-      const hoy = obtenerFechaBolivia();
-
-      const [pacientes, medicos, programadas, completadas] = await Promise.all([
-        api.get<RespuestaListado>("/pacientes", { signal }),
-
-        api.get<RespuestaListado>("/medicos", { signal }),
-
-        api.get<RespuestaListado>("/citas", {
-          params: {
-            estado: "programada",
-          },
-          signal,
-        }),
-
-        api.get<RespuestaListado>("/citas", {
-          params: {
-            estado: "completada",
-            fecha: hoy,
-          },
-          signal,
-        }),
-      ]);
-
-      if (signal?.aborted) return;
-
-      setTotales({
-        pacientes: obtenerTotal(pacientes.data),
-        medicos: obtenerTotal(medicos.data),
-        programadas: obtenerTotal(programadas.data),
-        completadas: obtenerTotal(completadas.data),
-      });
+      await cargarMetricas();
     } catch (err: unknown) {
-      if (!signal?.aborted) {
-        setError(true);
-        toast.error(extraerMensajeError(err));
-      }
-    } finally {
-      if (!signal?.aborted) {
-        setCargando(false);
-      }
+      toast.error(extraerMensajeError(err));
     }
-  }, []);
+  }, [cargarMetricas]);
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    void cargarMetricas(controller.signal);
-
-    return () => {
-      controller.abort();
-    };
-  }, [cargarMetricas]);
+    void actualizarMetricas();
+  }, [actualizarMetricas]);
 
   const fechaActual = new Intl.DateTimeFormat("es-BO", {
     timeZone: "America/La_Paz",
@@ -188,7 +113,7 @@ export function PaginaDashboard() {
           <button
             type="button"
             disabled={cargando}
-            onClick={() => void cargarMetricas()}
+            onClick={() => void actualizarMetricas()}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             {cargando ? "Actualizando..." : "Actualizar"}
@@ -283,7 +208,7 @@ export function PaginaDashboard() {
 
             <button
               type="button"
-              onClick={() => void cargarMetricas()}
+              onClick={() => void actualizarMetricas()}
               className="mt-4 rounded-lg bg-rose-600 px-4 py-2 font-semibold text-white transition hover:bg-rose-700"
             >
               Reintentar

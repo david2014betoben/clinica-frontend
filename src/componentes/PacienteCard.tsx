@@ -1,13 +1,18 @@
+import { useState } from "react";
 import type { ChangeEvent } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
+
 import type { EstadoPaciente, Paciente } from "../types/paciente";
+import { usePacientesStore } from "../stores/pacientesStore";
+import { extraerMensajeError } from "../lib/errorHandler";
+import { ModalConfirmacion } from "./ModalConfirmacion";
 
 interface PacienteCardProps {
   paciente: Omit<Paciente, "estado"> & {
     estado: EstadoPaciente | null;
   };
   onCambiarEstado?: (id: string, estado: EstadoPaciente) => void;
-  onEliminar?: (id: string) => void;
 }
 
 const estilosEstado: Record<
@@ -34,13 +39,17 @@ const estilosEstado: Record<
   },
 };
 
-export function PacienteCard({
-  paciente,
-  onCambiarEstado,
-  onEliminar,
-}: PacienteCardProps) {
+export function PacienteCard({ paciente, onCambiarEstado }: PacienteCardProps) {
+  const eliminar = usePacientesStore((state) => state.eliminar);
+  const cargar = usePacientesStore((state) => state.cargar);
+
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+
   const nombreCompleto = `${paciente.nombre} ${paciente.apellido}`;
-  const iniciales = `${paciente.nombre.charAt(0)}${paciente.apellido.charAt(0)}`;
+  const iniciales =
+    `${paciente.nombre.charAt(0)}${paciente.apellido.charAt(0)}`.toUpperCase();
+
   const estado = paciente.estado
     ? estilosEstado[paciente.estado]
     : {
@@ -55,6 +64,32 @@ export function PacienteCard({
 
     if (valor === "activo" || valor === "en_espera" || valor === "inactivo") {
       onCambiarEstado?.(paciente.id, valor);
+    }
+  };
+
+  const confirmarEliminacion = async () => {
+    if (eliminando) return;
+
+    setEliminando(true);
+
+    try {
+      await eliminar(Number(paciente.id));
+
+      toast.success("Paciente eliminado");
+
+      // La card se desmonta al eliminarse del store.
+      // La recarga completa la página con los registros restantes.
+      const estadoActual = usePacientesStore.getState();
+
+      const paginaDestino = Math.min(
+        estadoActual.pagina,
+        estadoActual.totalPaginas,
+      );
+
+      await cargar(undefined, paginaDestino);
+    } catch (err: unknown) {
+      toast.error(extraerMensajeError(err));
+      setEliminando(false);
     }
   };
 
@@ -73,6 +108,7 @@ export function PacienteCard({
             >
               {nombreCompleto}
             </h2>
+
             <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">
               {paciente.email}
             </p>
@@ -82,7 +118,11 @@ export function PacienteCard({
         <span
           className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${estado.clases}`}
         >
-          <span className={`size-1.5 rounded-full ${estado.punto}`} />
+          <span
+            aria-hidden="true"
+            className={`size-1.5 rounded-full ${estado.punto}`}
+          />
+
           {estado.texto}
         </span>
       </div>
@@ -96,6 +136,7 @@ export function PacienteCard({
       <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 text-sm dark:border-slate-800">
         <div>
           <p className="text-xs font-medium text-slate-400">Teléfono</p>
+
           <p className="mt-0.5 break-words text-slate-700 dark:text-slate-200">
             {paciente.telefono}
           </p>
@@ -103,6 +144,7 @@ export function PacienteCard({
 
         <div>
           <p className="text-xs font-medium text-slate-400">Última cita</p>
+
           <p className="mt-0.5 text-slate-700 dark:text-slate-200">
             {paciente.ultimaCita}
           </p>
@@ -129,6 +171,7 @@ export function PacienteCard({
             <option value="" disabled>
               Sin información
             </option>
+
             <option value="activo">Activo</option>
             <option value="en_espera">En espera</option>
             <option value="inactivo">Inactivo</option>
@@ -145,20 +188,25 @@ export function PacienteCard({
 
           <button
             type="button"
-            onClick={() => onEliminar?.(paciente.id)}
-            disabled={!onEliminar}
-            title={
-              !onEliminar
-                ? "Eliminación pendiente de conectar al backend"
-                : undefined
-            }
+            onClick={() => setMostrarConfirmacion(true)}
+            disabled={eliminando}
             aria-label={`Eliminar a ${nombreCompleto}`}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-900 dark:hover:bg-red-950/40 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-900 dark:hover:bg-red-950/40 dark:hover:text-red-400"
           >
             Eliminar
           </button>
         </div>
       </div>
+
+      {mostrarConfirmacion && (
+        <ModalConfirmacion
+          titulo="Eliminar paciente"
+          mensaje={`¿Deseas eliminar a ${nombreCompleto}? Esta acción no se puede deshacer.`}
+          procesando={eliminando}
+          onConfirmar={() => void confirmarEliminacion()}
+          onCancelar={() => setMostrarConfirmacion(false)}
+        />
+      )}
     </article>
   );
 }

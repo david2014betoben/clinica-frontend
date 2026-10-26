@@ -6,8 +6,8 @@ import toast from "react-hot-toast";
 import { citaSchema, type CitaFormData } from "../schemas/citaSchema";
 import { useMedicos } from "../hooks/useMedicos";
 import { usePacientes } from "../hooks/usePacientes";
-import { create } from "../services/citas";
 import { extraerMensajeError } from "../lib/errorHandler";
+import { useCitasStore } from "../stores/citasStore";
 
 function obtenerFechaLocal(): string {
   const hoy = new Date();
@@ -91,6 +91,7 @@ export function FormularioCita() {
 
   const cargandoOpciones = cargandoMedicos || cargandoPacientes;
   const errorOpciones = errorPacientes ?? errorMedicos;
+  const agregarCita = useCitasStore((state) => state.agregarCita);
 
   async function onSubmit(datos: CitaFormData) {
     const paciente = pacientes.find(
@@ -105,7 +106,7 @@ export function FormularioCita() {
     }
 
     try {
-      await create({
+      await agregarCita({
         id_paciente: paciente.id,
         id_medico: Number(medico.id),
         fecha: datos.fecha,

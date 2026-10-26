@@ -7,22 +7,14 @@ import {
   useRef,
   useState,
 } from "react";
+
 import toast from "react-hot-toast";
-import {
-  getAll,
-  updateEstado,
-  type Cita,
-  type EstadoCita,
-  type NuevoEstadoCita,
-} from "../services/citas";
+
+import { useCitasStore } from "../stores/citasStore";
+import { useFiltrosStore } from "../stores/filtrosStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 
-type FiltroEstado = EstadoCita | "todas";
-
-interface CambioEstado {
-  id: number;
-  estado: NuevoEstadoCita;
-}
+import type { Cita, EstadoCita, NuevoEstadoCita } from "../services/citas";
 
 interface Persona {
   nombre: string;
@@ -30,17 +22,25 @@ interface Persona {
   ap_materno: string | null;
 }
 
+interface CambioEstado {
+  id: number;
+  estado: NuevoEstadoCita;
+}
+
 const filtrosEstado: {
-  valor: FiltroEstado;
+  valor: EstadoCita | "Todos";
   texto: string;
 }[] = [
-  { valor: "todas", texto: "Todas" },
+  { valor: "Todos", texto: "Todas" },
   { valor: "programada", texto: "Programadas" },
   { valor: "completada", texto: "Completadas" },
   { valor: "cancelada", texto: "Canceladas" },
 ];
 
-const estilosEstado = {
+const estilosEstado: Record<
+  EstadoCita,
+  { texto: string; badge: string; punto: string }
+> = {
   programada: {
     texto: "Programada",
     badge:
@@ -60,6 +60,9 @@ const estilosEstado = {
     punto: "bg-rose-500",
   },
 };
+
+const claseBoton =
+  "inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
 
 function nombreCompleto(persona: Persona): string {
   return [persona.nombre, persona.ap_paterno, persona.ap_materno]
@@ -106,6 +109,7 @@ function BadgeEstado({ estado }: { estado: Cita["estado"] }) {
         aria-hidden="true"
         className={`size-1.5 rounded-full ${estilo.punto}`}
       />
+
       {estilo.texto}
     </span>
   );
@@ -136,9 +140,11 @@ function AccionEstado({ cita, guardando, onCambiar }: AccionEstadoProps) {
         <option value="" disabled>
           Seleccionar
         </option>
+
         <option value="programada" disabled>
           Programada
         </option>
+
         <option value="completada">Completada</option>
         <option value="cancelada">Cancelada</option>
       </select>
@@ -179,6 +185,7 @@ function SkeletonCitas() {
             </div>
 
             <div className="hidden h-3 w-32 rounded bg-slate-200 dark:bg-slate-700 md:block" />
+
             <div className="h-6 w-20 rounded-full bg-slate-200 dark:bg-slate-700" />
           </div>
         ))}
@@ -188,16 +195,24 @@ function SkeletonCitas() {
 }
 
 export function PaginaCitas() {
-  const [citas, setCitas] = useState<Cita[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(false);
+  // Datos y acciones de citas desde Zustand.
+  const citas = useCitasStore((state) => state.citas);
+  const cargando = useCitasStore((state) => state.cargando);
+  const cargar = useCitasStore((state) => state.cargar);
+  const actualizarEstado = useCitasStore((state) => state.actualizarEstado);
 
+  // Filtro de estado desde Zustand.
+  const estadoFiltro = useFiltrosStore((state) => state.estadoCitaFiltro);
+
+  const setEstadoFiltro = useFiltrosStore((state) => state.setEstadoCita);
+
+  // Estados locales de interfaz.
+  const [error, setError] = useState(false);
   const [busqueda, setBusqueda] = useState("");
-  const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstado>("todas");
   const [fechaFiltro, setFechaFiltro] = useState("");
   const [pagina, setPagina] = useState(1);
-
   const [pendientes, setPendientes] = useState<number[]>([]);
+
   const bloqueos = useRef(new Set<number>());
 
   const [citasOptimistas, aplicarCambioOptimista] = useOptimistic(
@@ -208,34 +223,19 @@ export function PaginaCitas() {
       ),
   );
 
-  const cargarCitas = useCallback(async (signal?: AbortSignal) => {
-    setCargando(true);
+  const cargarCitas = useCallback(async () => {
     setError(false);
 
     try {
-      const datos = await getAll(signal);
-
-      if (!signal?.aborted) {
-        setCitas(datos);
-      }
+      await cargar();
     } catch (err: unknown) {
-      if (!signal?.aborted) {
-        setError(true);
-        toast.error(extraerMensajeError(err));
-      }
-    } finally {
-      if (!signal?.aborted) {
-        setCargando(false);
-      }
+      setError(true);
+      toast.error(extraerMensajeError(err));
     }
-  }, []);
+  }, [cargar]);
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    void cargarCitas(controller.signal);
-
-    return () => controller.abort();
+    void cargarCitas();
   }, [cargarCitas]);
 
   const cambiarEstado = (id: number, nuevoEstado: NuevoEstadoCita) => {
@@ -250,27 +250,24 @@ export function PaginaCitas() {
     }
 
     bloqueos.current.add(id);
+
     setPendientes((actuales) => [...actuales, id]);
 
     startTransition(async () => {
-      aplicarCambioOptimista({ id, estado: nuevoEstado });
+      aplicarCambioOptimista({
+        id,
+        estado: nuevoEstado,
+      });
 
       try {
-        await updateEstado(id, nuevoEstado);
-
-        startTransition(() => {
-          setCitas((actuales) =>
-            actuales.map((cita) =>
-              cita.id === id ? { ...cita, estado: nuevoEstado } : cita,
-            ),
-          );
-        });
+        await actualizarEstado(id, nuevoEstado);
 
         toast.success("Estado de cita actualizado");
       } catch (err: unknown) {
         toast.error(`Cambio revertido: ${extraerMensajeError(err)}`);
       } finally {
         bloqueos.current.delete(id);
+
         setPendientes((actuales) =>
           actuales.filter((pendiente) => pendiente !== id),
         );
@@ -287,7 +284,7 @@ export function PaginaCitas() {
         normalizar(nombreCompleto(cita.medico)).includes(termino);
 
       const coincideEstado =
-        estadoFiltro === "todas" || cita.estado === estadoFiltro;
+        estadoFiltro === "Todos" || cita.estado === estadoFiltro;
 
       const coincideFecha =
         fechaFiltro === "" || cita.fecha.slice(0, 10) === fechaFiltro;
@@ -297,23 +294,23 @@ export function PaginaCitas() {
   }, [citasOptimistas, busqueda, estadoFiltro, fechaFiltro]);
 
   const limite = 10;
+
   const totalPaginas = Math.max(1, Math.ceil(citasFiltradas.length / limite));
+
   const paginaActual = Math.min(pagina, totalPaginas);
   const inicio = (paginaActual - 1) * limite;
+
   const citasPagina = citasFiltradas.slice(inicio, inicio + limite);
 
   const hayFiltros =
-    busqueda.trim() !== "" || estadoFiltro !== "todas" || fechaFiltro !== "";
+    busqueda.trim() !== "" || estadoFiltro !== "Todos" || fechaFiltro !== "";
 
   function limpiarFiltros() {
     setBusqueda("");
-    setEstadoFiltro("todas");
+    setEstadoFiltro("Todos");
     setFechaFiltro("");
     setPagina(1);
   }
-
-  const claseBoton =
-    "inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-800 dark:bg-[#0b1120] dark:text-slate-100 sm:px-6 lg:px-8">
@@ -498,18 +495,23 @@ export function PaginaCitas() {
                     <th scope="col" className="w-[27%] px-4 py-3 font-semibold">
                       Paciente
                     </th>
+
                     <th scope="col" className="w-[23%] px-4 py-3 font-semibold">
                       Médico
                     </th>
+
                     <th scope="col" className="w-[15%] px-4 py-3 font-semibold">
                       Fecha
                     </th>
+
                     <th scope="col" className="w-[9%] px-3 py-3 font-semibold">
                       Hora
                     </th>
+
                     <th scope="col" className="w-[13%] px-3 py-3 font-semibold">
                       Estado
                     </th>
+
                     <th
                       scope="col"
                       className="w-[13%] px-3 py-3 text-right font-semibold"
@@ -539,6 +541,7 @@ export function PaginaCitas() {
                             >
                               {nombreCompleto(cita.paciente)}
                             </p>
+
                             <p className="mt-0.5 text-xs text-slate-400">
                               Cita #{cita.id}
                             </p>
@@ -594,6 +597,7 @@ export function PaginaCitas() {
                         <h2 className="break-words text-sm font-semibold">
                           {nombreCompleto(cita.paciente)}
                         </h2>
+
                         <p className="mt-1 text-xs text-slate-400">
                           Cita #{cita.id}
                         </p>

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { useAuthStore } from "../stores/authStore";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -6,9 +7,12 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = useAuthStore.getState().token;
 
-  if (token) {
+  // El login no necesita enviar un token anterior.
+  const esLogin = config.url?.split("?")[0] === "/auth/login";
+
+  if (token && !esLogin) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -17,12 +21,22 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error: unknown) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      localStorage.removeItem("token");
 
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+  (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
+      const url = error.config?.url?.split("?")[0];
+
+      // Si el login devuelve 401, el formulario muestra
+      // "Credenciales inválidas" sin cerrar otra sesión.
+      const esLogin = url === "/auth/login";
+
+      if (status === 401 && !esLogin) {
+        useAuthStore.getState().logout();
+
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
       }
     }
 

@@ -5,19 +5,12 @@ import { api } from "../lib/axios";
 import { extraerMensajeError } from "../lib/errorHandler";
 import * as pacientesService from "../services/pacientes";
 
+import type { RespuestaPaginada, RespuestaPaginadaAPI } from "../types/api";
 import type {
   PacienteAPI,
   CrearPacienteDTO,
   ActualizarPacienteDTO,
 } from "../types/paciente-api";
-
-interface RespuestaPacientes {
-  data: PacienteAPI[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
 
 interface PacientesState {
   pacientes: PacienteAPI[];
@@ -77,22 +70,32 @@ export const usePacientesStore = create<PacientesState>()(
         set({ cargando: true, error: null }, false, "pacientes/cargarInicio");
 
         try {
-          const respuesta = await api.get<RespuestaPacientes>("/pacientes", {
-            params: {
-              page: pagina,
-              limit: LIMITE_POR_PAGINA,
-              ...(query?.trim() ? { query: query.trim() } : {}),
+          const respuesta = await api.get<RespuestaPaginadaAPI<PacienteAPI>>(
+            "/pacientes",
+            {
+              params: {
+                page: pagina,
+                limit: LIMITE_POR_PAGINA,
+                ...(query?.trim() ? { search: query.trim() } : {}),
+              },
             },
-          });
+          );
 
           if (numeroCarga !== ultimaCarga) return;
 
+          const resultado: RespuestaPaginada<PacienteAPI> = {
+            data: respuesta.data.data,
+            total: respuesta.data.total,
+            pagina: respuesta.data.page,
+            totalPaginas: respuesta.data.totalPages,
+          };
+
           set(
             {
-              pacientes: respuesta.data.data,
-              total: respuesta.data.total,
-              pagina: respuesta.data.page,
-              totalPaginas: Math.max(1, respuesta.data.totalPages),
+              pacientes: resultado.data,
+              total: resultado.total,
+              pagina: resultado.pagina,
+              totalPaginas: Math.max(1, resultado.totalPaginas),
               cargando: false,
               error: null,
             },
@@ -131,12 +134,15 @@ export const usePacientesStore = create<PacientesState>()(
           let totalPaginas = 1;
 
           do {
-            const respuesta = await api.get<RespuestaPacientes>("/pacientes", {
-              params: {
-                page: pagina,
-                limit: 100,
+            const respuesta = await api.get<RespuestaPaginadaAPI<PacienteAPI>>(
+              "/pacientes",
+              {
+                params: {
+                  page: pagina,
+                  limit: 100,
+                },
               },
-            });
+            );
 
             registros.push(...respuesta.data.data);
             totalPaginas = respuesta.data.totalPages;

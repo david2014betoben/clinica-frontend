@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-
+import { useFiltrosStore } from "../stores/filtrosStore";
 import type { EstadoPaciente, Paciente } from "../types/paciente";
 import { usePacientesStore } from "../stores/pacientesStore";
 import { extraerMensajeError } from "../lib/errorHandler";
@@ -86,7 +86,8 @@ export function PacienteCard({ paciente, onCambiarEstado }: PacienteCardProps) {
         estadoActual.totalPaginas,
       );
 
-      await cargar(undefined, paginaDestino);
+      const query = useFiltrosStore.getState().queryPacientes;
+      await cargar(query, paginaDestino);
     } catch (err: unknown) {
       toast.error(extraerMensajeError(err));
       setEliminando(false);

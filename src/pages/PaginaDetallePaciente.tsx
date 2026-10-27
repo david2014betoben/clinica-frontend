@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-
+import { CitasDelPaciente } from "../componentes/CitasDelPaciente";
 import { usePacientesStore } from "../stores/pacientesStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { PaginaNotFound } from "./PaginaNotFound";
@@ -218,6 +218,7 @@ export function PaginaDetallePaciente() {
                 </div>
               </div>
             </section>
+            <CitasDelPaciente pacienteId={pacienteActual.id} />
 
             <section className="grid gap-5 lg:grid-cols-2">
               <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">

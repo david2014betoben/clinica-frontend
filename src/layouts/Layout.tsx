@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../stores/authStore";
 
 type IconoNombre = "dashboard" | "pacientes" | "cita" | "reportes";
 
@@ -65,6 +66,14 @@ const enlaces: Array<{
 ];
 
 export function Layout() {
+  const navigate = useNavigate();
+  const logout = useAuthStore((state) => state.logout);
+
+  const cerrarSesion = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">
       <aside className="z-30 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-64 lg:flex-col lg:border-b-0 lg:border-r">
@@ -137,16 +146,28 @@ export function Layout() {
           ))}
         </nav>
 
-        <div className="mt-auto hidden border-t border-slate-200 px-5 py-4 dark:border-slate-800 lg:block">
-          <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/70">
-            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-              Gestión clínica
-            </p>
-
-            <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-              Pacientes y citas en un solo lugar.
-            </p>
-          </div>
+        <div className="mt-auto border-t border-slate-200 px-4 py-4 dark:border-slate-800 lg:px-3">
+          <button
+            type="button"
+            onClick={cerrarSesion}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-700 dark:text-slate-300 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+          >
+            <svg
+              aria-hidden="true"
+              className="size-5 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M10 17l5-5-5-5" />
+              <path d="M15 12H3" />
+              <path d="M12 3h5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-5" />
+            </svg>
+            Cerrar sesión
+          </button>
         </div>
       </aside>
 

@@ -6,6 +6,7 @@ import { PaginaDetallePaciente } from "./pages/PaginaDetallePaciente";
 import { PaginaNuevaCita } from "./pages/PaginaNuevaCita";
 import { PaginaNotFound } from "./pages/PaginaNotFound";
 import { PaginaCitas } from "./pages/PaginaCitas";
+import { PaginaReportes } from "./pages/PaginaReportes";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="citas" element={<PaginaCitas />} />
         <Route path="/citas/nueva" element={<PaginaNuevaCita />} />
         <Route path="*" element={<PaginaNotFound />} />
+        <Route path="/reportes" element={<PaginaReportes />} />
       </Route>
     </Routes>
   );

@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-type IconoNombre = "dashboard" | "pacientes" | "cita";
+type IconoNombre = "dashboard" | "pacientes" | "cita" | "reportes";
 
 function Icono({ nombre }: { nombre: IconoNombre }) {
   const props = {
@@ -33,6 +33,18 @@ function Icono({ nombre }: { nombre: IconoNombre }) {
     );
   }
 
+  if (nombre === "reportes") {
+    return (
+      <svg {...props}>
+        <path
+          d="M4 19.5h16M6.5 16V10m5 6V4.5m5 11.5V8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg {...props}>
       <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
@@ -49,6 +61,7 @@ const enlaces: Array<{
   { to: "/", texto: "Dashboard", icono: "dashboard" },
   { to: "/pacientes", texto: "Pacientes", icono: "pacientes" },
   { to: "/citas", texto: "Citas", icono: "cita" },
+  { to: "/reportes", texto: "Reportes", icono: "reportes" },
 ];
 
 export function Layout() {
@@ -77,6 +90,7 @@ export function Layout() {
             <p className="font-bold tracking-tight text-slate-950 dark:text-white">
               MediPulse
             </p>
+
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Gestión Clínica
             </p>
@@ -128,6 +142,7 @@ export function Layout() {
             <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
               Gestión clínica
             </p>
+
             <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
               Pacientes y citas en un solo lugar.
             </p>

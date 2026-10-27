@@ -67,6 +67,7 @@ const enlaces: Array<{
 
 export function Layout() {
   const navigate = useNavigate();
+  const usuario = useAuthStore((state) => state.usuario);
   const logout = useAuthStore((state) => state.logout);
 
   const cerrarSesion = () => {
@@ -172,6 +173,24 @@ export function Layout() {
       </aside>
 
       <div className="flex min-h-screen min-w-0 flex-col lg:pl-64">
+        <header className="flex min-h-16 items-center justify-end border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="min-w-0 text-right">
+              <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                {usuario?.nombre ?? "Usuario"}
+              </p>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {usuario?.rol ?? "Sin rol"}
+              </p>
+            </div>
+
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              {(usuario?.nombre ?? "U").charAt(0).toUpperCase()}
+            </div>
+          </div>
+        </header>
+
         <main className="min-w-0 flex-1">
           <Outlet />
         </main>

@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 
 type IconoNombre = "dashboard" | "pacientes" | "cita" | "reportes";
@@ -174,7 +174,11 @@ export function Layout() {
 
       <div className="flex min-h-screen min-w-0 flex-col lg:pl-64">
         <header className="flex min-h-16 items-center justify-end border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
+          <Link
+            to="/perfil"
+            aria-label="Ver y editar mi perfil"
+            className="flex min-w-0 items-center gap-3 rounded-lg p-2 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:hover:bg-slate-800"
+          >
             <div className="min-w-0 text-right">
               <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                 {usuario?.nombre ?? "Usuario"}
@@ -185,10 +189,26 @@ export function Layout() {
               </p>
             </div>
 
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-              {(usuario?.nombre ?? "U").charAt(0).toUpperCase()}
+            <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-100 text-sm font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              {usuario?.foto ? (
+                <img
+                  src={
+                    new URL(
+                      usuario.foto,
+                      new URL(
+                        import.meta.env.VITE_API_URL,
+                        window.location.origin,
+                      ).origin,
+                    ).href
+                  }
+                  alt=""
+                  className="size-full object-cover"
+                />
+              ) : (
+                (usuario?.nombre ?? "U").charAt(0).toUpperCase()
+              )}
             </div>
-          </div>
+          </Link>
         </header>
 
         <main className="min-w-0 flex-1">

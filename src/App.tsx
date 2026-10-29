@@ -9,6 +9,7 @@ import { PaginaCitas } from "./pages/PaginaCitas";
 import { PaginaReportes } from "./pages/PaginaReportes";
 import { PaginaLogin } from "./pages/PaginaLogin";
 import { PaginaSinAcceso } from "./pages/PaginaSinAcceso";
+import { PaginaPerfil } from "./pages/PaginaPerfil";
 
 import { useAuthStore } from "./stores/authStore";
 
@@ -55,6 +56,8 @@ function App() {
           <Route path="/pacientes" element={<PaginaPacientes />} />
 
           <Route path="/pacientes/:id" element={<PaginaDetallePaciente />} />
+
+          <Route path="/perfil" element={<PaginaPerfil />} />
 
           <Route path="/citas" element={<PaginaCitas />} />
 

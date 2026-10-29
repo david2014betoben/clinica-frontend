@@ -3,6 +3,8 @@ export interface UsuarioSesion {
   nombre: string;
   email: string;
   rol: string;
+  telefono?: string | null;
+  foto?: string | null;
 }
 
 export interface LoginResponse {

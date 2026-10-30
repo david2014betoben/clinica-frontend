@@ -63,6 +63,7 @@ const enlaces: Array<{
   { to: "/pacientes", texto: "Pacientes", icono: "pacientes" },
   { to: "/citas", texto: "Citas", icono: "cita" },
   { to: "/reportes", texto: "Reportes", icono: "reportes" },
+  { to: "/historial", texto: "Historial de citas", icono: "cita" },
 ];
 
 export function Layout() {

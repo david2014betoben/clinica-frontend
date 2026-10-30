@@ -10,7 +10,7 @@ import { PaginaReportes } from "./pages/PaginaReportes";
 import { PaginaLogin } from "./pages/PaginaLogin";
 import { PaginaSinAcceso } from "./pages/PaginaSinAcceso";
 import { PaginaPerfil } from "./pages/PaginaPerfil";
-
+import { PaginaHistorialCitas } from "./pages/PaginaHistorialCitas";
 import { useAuthStore } from "./stores/authStore";
 
 interface RutaProtegidaProps {
@@ -70,6 +70,8 @@ function App() {
           </Route>
 
           <Route path="*" element={<PaginaNotFound />} />
+
+          <Route path="/historial" element={<PaginaHistorialCitas />} />
         </Route>
       </Route>
     </Routes>

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { useCitasStore } from "../stores/citasStore";
@@ -15,6 +15,11 @@ import { useFiltrosStore } from "../stores/filtrosStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 
 import type { Cita, EstadoCita, NuevoEstadoCita } from "../services/citas";
+
+import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
+import { EstadoVacio } from "../shared/components/ui/EstadoVacio";
+import { ModalConfirmacion } from "../shared/components/ui/ModalConfirmacion";
+import { Spinner } from "../shared/components/ui/Spinner";
 
 interface Persona {
   nombre: string;
@@ -62,7 +67,7 @@ const estilosEstado: Record<
 };
 
 const claseBoton =
-  "inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
+  "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700";
 
 function nombreCompleto(persona: Persona): string {
   return [persona.nombre, persona.ap_paterno, persona.ap_materno]
@@ -79,16 +84,37 @@ function normalizar(texto: string): string {
 }
 
 function formatearFecha(fecha: string): string {
+  const valor = new Date(fecha);
+
+  if (Number.isNaN(valor.getTime())) return "Sin fecha";
+
   return new Intl.DateTimeFormat("es-BO", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     timeZone: "UTC",
-  }).format(new Date(fecha));
+  }).format(valor);
+}
+
+function formatearHora(hora: string): string {
+  if (/^\d{2}:\d{2}/.test(hora)) return hora.slice(0, 5);
+
+  const valor = new Date(hora);
+
+  if (Number.isNaN(valor.getTime())) return "Sin hora";
+
+  return new Intl.DateTimeFormat("es-BO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+  }).format(valor);
 }
 
 function iniciales(persona: Persona): string {
-  return `${persona.nombre.charAt(0)}${persona.ap_paterno.charAt(0)}`.toUpperCase();
+  return (
+    persona.nombre.charAt(0) + persona.ap_paterno.charAt(0)
+  ).toUpperCase();
 }
 
 function BadgeEstado({ estado }: { estado: Cita["estado"] }) {
@@ -109,7 +135,6 @@ function BadgeEstado({ estado }: { estado: Cita["estado"] }) {
         aria-hidden="true"
         className={`size-1.5 rounded-full ${estilo.punto}`}
       />
-
       {estilo.texto}
     </span>
   );
@@ -140,20 +165,16 @@ function AccionEstado({ cita, guardando, onCambiar }: AccionEstadoProps) {
         <option value="" disabled>
           Seleccionar
         </option>
-
         <option value="programada" disabled>
           Programada
         </option>
-
         <option value="completada">Completada</option>
         <option value="cancelada">Cancelada</option>
       </select>
 
       {guardando && (
-        <span
-          role="status"
-          className="text-[11px] text-indigo-600 dark:text-indigo-300"
-        >
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-indigo-600 dark:text-indigo-300">
+          <Spinner mensaje="Guardando estado..." />
           Guardando…
         </span>
       )}
@@ -162,56 +183,83 @@ function AccionEstado({ cita, guardando, onCambiar }: AccionEstadoProps) {
 }
 
 function SkeletonCitas() {
+  const bloque = "animate-pulse rounded bg-slate-200 dark:bg-slate-700";
+
   return (
-    <div
+    <section
       role="status"
-      className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#111827]"
+      className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#111827]"
     >
       <span className="sr-only">Cargando citas...</span>
 
-      <div aria-hidden="true" className="space-y-4 motion-safe:animate-pulse">
-        <div className="h-9 rounded-lg bg-slate-100 dark:bg-slate-800" />
+      <div aria-hidden="true">
+        <div className="hidden grid-cols-6 gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-[#0f172a] lg:grid">
+          {Array.from({ length: 6 }, (_, indice) => (
+            <div key={indice} className={`${bloque} h-4 w-16`} />
+          ))}
+        </div>
 
-        {Array.from({ length: 6 }, (_, indice) => (
-          <div
-            key={indice}
-            className="flex items-center gap-4 border-b border-slate-100 py-4 last:border-0 dark:border-slate-800"
-          >
-            <div className="size-10 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700" />
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {Array.from({ length: 10 }, (_, indice) => (
+            <div key={indice}>
+              <div className="hidden h-20 grid-cols-6 items-center gap-4 px-4 lg:grid">
+                <div className="flex items-center gap-3">
+                  <div className={`${bloque} size-9 shrink-0 rounded-full`} />
+                  <div className={`${bloque} h-4 flex-1`} />
+                </div>
 
-            <div className="flex-1 space-y-2">
-              <div className="h-3 w-3/4 max-w-40 rounded bg-slate-200 dark:bg-slate-700" />
-              <div className="h-2.5 w-20 rounded bg-slate-100 dark:bg-slate-800" />
+                {Array.from({ length: 5 }, (_, columna) => (
+                  <div
+                    key={columna}
+                    className={`${bloque} h-4 w-full max-w-28`}
+                  />
+                ))}
+              </div>
+
+              <div className="space-y-4 p-4 lg:hidden">
+                <div className="flex items-center gap-3">
+                  <div className={`${bloque} size-10 rounded-full`} />
+                  <div className={`${bloque} h-5 flex-1`} />
+                  <div className={`${bloque} h-6 w-20 rounded-full`} />
+                </div>
+
+                <div className={`${bloque} h-9 w-2/3`} />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={`${bloque} h-9`} />
+                  <div className={`${bloque} h-9`} />
+                </div>
+
+                <div className="flex justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <div className={`${bloque} h-4 w-24`} />
+                  <div className={`${bloque} h-9 w-28`} />
+                </div>
+              </div>
             </div>
-
-            <div className="hidden h-3 w-32 rounded bg-slate-200 dark:bg-slate-700 md:block" />
-
-            <div className="h-6 w-20 rounded-full bg-slate-200 dark:bg-slate-700" />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
 export function PaginaCitas() {
-  // Datos y acciones de citas desde Zustand.
+  const navigate = useNavigate();
+
   const citas = useCitasStore((state) => state.citas);
   const cargando = useCitasStore((state) => state.cargando);
   const cargar = useCitasStore((state) => state.cargar);
   const actualizarEstado = useCitasStore((state) => state.actualizarEstado);
 
-  // Filtro de estado desde Zustand.
   const estadoFiltro = useFiltrosStore((state) => state.estadoCitaFiltro);
-
   const setEstadoFiltro = useFiltrosStore((state) => state.setEstadoCita);
 
-  // Estados locales de interfaz.
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [fechaFiltro, setFechaFiltro] = useState("");
   const [pagina, setPagina] = useState(1);
   const [pendientes, setPendientes] = useState<number[]>([]);
+  const [citaACancelar, setCitaACancelar] = useState<Cita | null>(null);
 
   const bloqueos = useRef(new Set<number>());
 
@@ -224,13 +272,14 @@ export function PaginaCitas() {
   );
 
   const cargarCitas = useCallback(async () => {
-    setError(false);
+    setError(null);
 
     try {
       await cargar();
     } catch (err: unknown) {
-      setError(true);
-      toast.error(extraerMensajeError(err));
+      const mensaje = extraerMensajeError(err);
+      setError(mensaje);
+      toast.error(mensaje);
     }
   }, [cargar]);
 
@@ -250,7 +299,6 @@ export function PaginaCitas() {
     }
 
     bloqueos.current.add(id);
-
     setPendientes((actuales) => [...actuales, id]);
 
     startTransition(async () => {
@@ -263,6 +311,10 @@ export function PaginaCitas() {
         await actualizarEstado(id, nuevoEstado);
 
         toast.success("Estado de cita actualizado");
+
+        if (nuevoEstado === "cancelada") {
+          setCitaACancelar(null);
+        }
       } catch (err: unknown) {
         toast.error(`Cambio revertido: ${extraerMensajeError(err)}`);
       } finally {
@@ -273,6 +325,21 @@ export function PaginaCitas() {
         );
       }
     });
+  };
+
+  const solicitarCambioEstado = (id: number, nuevoEstado: NuevoEstadoCita) => {
+    const cita = citas.find((item) => item.id === id);
+
+    if (!cita || cita.estado === nuevoEstado || bloqueos.current.has(id)) {
+      return;
+    }
+
+    if (nuevoEstado === "cancelada") {
+      setCitaACancelar(cita);
+      return;
+    }
+
+    cambiarEstado(id, nuevoEstado);
   };
 
   const citasFiltradas = useMemo(() => {
@@ -294,16 +361,17 @@ export function PaginaCitas() {
   }, [citasOptimistas, busqueda, estadoFiltro, fechaFiltro]);
 
   const limite = 10;
-
   const totalPaginas = Math.max(1, Math.ceil(citasFiltradas.length / limite));
 
   const paginaActual = Math.min(pagina, totalPaginas);
   const inicio = (paginaActual - 1) * limite;
-
   const citasPagina = citasFiltradas.slice(inicio, inicio + limite);
 
   const hayFiltros =
     busqueda.trim() !== "" || estadoFiltro !== "Todos" || fechaFiltro !== "";
+
+  const cancelando =
+    citaACancelar !== null && pendientes.includes(citaACancelar.id);
 
   function limpiarFiltros() {
     setBusqueda("");
@@ -340,6 +408,7 @@ export function PaginaCitas() {
             onClick={() => void cargarCitas()}
             className={claseBoton}
           >
+            {cargando && <Spinner mensaje="Actualizando citas..." />}
             {cargando ? "Actualizando…" : "Actualizar"}
           </button>
         </header>
@@ -371,7 +440,7 @@ export function PaginaCitas() {
                   setBusqueda(evento.target.value);
                   setPagina(1);
                 }}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </div>
 
@@ -427,58 +496,39 @@ export function PaginaCitas() {
         {cargando ? (
           <SkeletonCitas />
         ) : error ? (
-          <section
-            role="alert"
-            className="rounded-xl border border-rose-200 bg-white px-5 py-14 text-center dark:border-rose-950 dark:bg-[#111827]"
-          >
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Error al cargar las citas
-            </h2>
-
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-              No pudimos obtener los datos. Comprueba la conexión e intenta
-              nuevamente.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => void cargarCitas()}
-              className="mt-5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-            >
-              Reintentar
-            </button>
-          </section>
+          <AlertaBanner
+            tipo="error"
+            titulo="Error al cargar las citas"
+            mensaje={error}
+            accion={{
+              label: "Reintentar",
+              onClick: () => void cargarCitas(),
+            }}
+          />
         ) : citasFiltradas.length === 0 ? (
-          <section className="rounded-xl border border-slate-200 bg-white px-5 py-16 text-center dark:border-slate-800 dark:bg-[#111827]">
-            <div
-              aria-hidden="true"
-              className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-indigo-50 text-2xl text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300"
-            >
-              {citas.length === 0 ? "＋" : "⌕"}
-            </div>
-
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              {citas.length === 0
+          <EstadoVacio
+            titulo={
+              citas.length === 0
                 ? "Sin citas registradas"
-                : "Sin resultados de búsqueda"}
-            </h2>
-
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {citas.length === 0
-                ? "Agenda una cita con el botón Nueva cita del menú."
-                : "Prueba otro nombre, estado o fecha."}
-            </p>
-
-            {hayFiltros && (
-              <button
-                type="button"
-                onClick={limpiarFiltros}
-                className={`${claseBoton} mt-5`}
-              >
-                Restablecer filtros
-              </button>
-            )}
-          </section>
+                : "Sin resultados de búsqueda"
+            }
+            descripcion={
+              citas.length === 0
+                ? "Agenda una cita para comenzar."
+                : "Prueba otro nombre, estado o fecha."
+            }
+            accion={
+              hayFiltros
+                ? {
+                    label: "Restablecer filtros",
+                    onClick: limpiarFiltros,
+                  }
+                : {
+                    label: "Nueva cita",
+                    onClick: () => navigate("/citas/nueva"),
+                  }
+            }
+          />
         ) : (
           <section
             aria-label="Listado de citas"
@@ -492,30 +542,22 @@ export function PaginaCitas() {
 
                 <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 dark:border-slate-800 dark:bg-[#0f172a] dark:text-slate-400">
                   <tr>
-                    <th scope="col" className="w-[27%] px-4 py-3 font-semibold">
+                    <th scope="col" className="w-[27%] px-4 py-3">
                       Paciente
                     </th>
-
-                    <th scope="col" className="w-[23%] px-4 py-3 font-semibold">
+                    <th scope="col" className="w-[23%] px-4 py-3">
                       Médico
                     </th>
-
-                    <th scope="col" className="w-[15%] px-4 py-3 font-semibold">
+                    <th scope="col" className="w-[15%] px-4 py-3">
                       Fecha
                     </th>
-
-                    <th scope="col" className="w-[9%] px-3 py-3 font-semibold">
+                    <th scope="col" className="w-[9%] px-3 py-3">
                       Hora
                     </th>
-
-                    <th scope="col" className="w-[13%] px-3 py-3 font-semibold">
+                    <th scope="col" className="w-[13%] px-3 py-3">
                       Estado
                     </th>
-
-                    <th
-                      scope="col"
-                      className="w-[13%] px-3 py-3 text-right font-semibold"
-                    >
+                    <th scope="col" className="w-[13%] px-3 py-3 text-right">
                       Acción
                     </th>
                   </tr>
@@ -526,7 +568,7 @@ export function PaginaCitas() {
                     <tr
                       key={cita.id}
                       aria-busy={pendientes.includes(cita.id)}
-                      className="transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      className="h-20 transition hover:bg-slate-50 dark:hover:bg-slate-800/40"
                     >
                       <td className="px-4 py-4">
                         <div className="flex min-w-0 items-center gap-3">
@@ -560,7 +602,7 @@ export function PaginaCitas() {
                       </td>
 
                       <td className="px-3 py-4 font-mono text-xs font-medium">
-                        {cita.hora.slice(11, 16)}
+                        {formatearHora(cita.hora)}
                       </td>
 
                       <td className="px-3 py-4">
@@ -571,7 +613,7 @@ export function PaginaCitas() {
                         <AccionEstado
                           cita={cita}
                           guardando={pendientes.includes(cita.id)}
-                          onCambiar={cambiarEstado}
+                          onCambiar={solicitarCambioEstado}
                         />
                       </td>
                     </tr>
@@ -623,7 +665,7 @@ export function PaginaCitas() {
                     <div>
                       <dt className="text-slate-400">Hora</dt>
                       <dd className="mt-1 font-mono">
-                        {cita.hora.slice(11, 16)}
+                        {formatearHora(cita.hora)}
                       </dd>
                     </div>
                   </dl>
@@ -636,7 +678,7 @@ export function PaginaCitas() {
                     <AccionEstado
                       cita={cita}
                       guardando={pendientes.includes(cita.id)}
-                      onCambiar={cambiarEstado}
+                      onCambiar={solicitarCambioEstado}
                     />
                   </div>
                 </article>
@@ -685,6 +727,24 @@ export function PaginaCitas() {
           </section>
         )}
       </div>
+
+      {citaACancelar && (
+        <ModalConfirmacion
+          titulo="Cancelar cita"
+          mensaje={`¿Deseas cancelar la cita de ${nombreCompleto(
+            citaACancelar.paciente,
+          )} del ${formatearFecha(
+            citaACancelar.fecha,
+          )} a las ${formatearHora(citaACancelar.hora)}?`}
+          procesando={cancelando}
+          textoConfirmar="Cancelar cita"
+          textoProcesando="Cancelando..."
+          onConfirmar={() => cambiarEstado(citaACancelar.id, "cancelada")}
+          onCancelar={() => {
+            if (!cancelando) setCitaACancelar(null);
+          }}
+        />
+      )}
     </div>
   );
 }

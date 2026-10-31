@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { getHistorial } from "../services/citas";
 import type { Cita, EstadoHistorial } from "../services/citas";
 import type { RespuestaPaginada } from "../types/api";
 import { extraerMensajeError } from "../lib/errorHandler";
+
+import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
+import { EstadoVacio } from "../shared/components/ui/EstadoVacio";
+import { SkeletonCitaRow } from "../shared/components/ui/Skeletons";
 
 const estados: EstadoHistorial[] = [
   "Todos",
@@ -29,7 +33,9 @@ function formatearFecha(fecha: string): string {
 }
 
 function formatearHora(hora: string): string {
-  if (/^\d{2}:\d{2}/.test(hora)) return hora.slice(0, 5);
+  if (/^\d{2}:\d{2}/.test(hora)) {
+    return hora.slice(0, 5);
+  }
 
   const valor = new Date(hora);
 
@@ -53,10 +59,15 @@ function estiloEstado(estado: Cita["estado"]): string {
   switch (estado) {
     case "completada":
       return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300";
+
     case "cancelada":
       return "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300";
-    default:
+
+    case "programada":
       return "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300";
+
+    default:
+      return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
   }
 }
 
@@ -67,7 +78,9 @@ interface ResultadoCarga {
 }
 
 export function PaginaHistorialCitas() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
   const [intento, setIntento] = useState(0);
   const [resultado, setResultado] = useState<ResultadoCarga | null>(null);
 
@@ -77,6 +90,7 @@ export function PaginaHistorialCitas() {
     Number.isSafeInteger(paginaURL) && paginaURL > 0 ? paginaURL : 1;
 
   const estadoURL = searchParams.get("estado");
+
   const estado: EstadoHistorial = esEstadoHistorial(estadoURL)
     ? estadoURL
     : "Todos";
@@ -177,20 +191,15 @@ export function PaginaHistorialCitas() {
       </header>
 
       {error ? (
-        <section
-          role="alert"
-          className="rounded-xl border border-rose-200 bg-rose-50 p-6 dark:border-rose-900 dark:bg-rose-950/30"
-        >
-          <p className="text-sm text-rose-700 dark:text-rose-300">{error}</p>
-
-          <button
-            type="button"
-            onClick={() => setIntento((actual) => actual + 1)}
-            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-          >
-            Reintentar
-          </button>
-        </section>
+        <AlertaBanner
+          tipo="error"
+          titulo="No se pudo cargar el historial"
+          mensaje={error}
+          accion={{
+            label: "Reintentar",
+            onClick: () => setIntento((actual) => actual + 1),
+          }}
+        />
       ) : (
         <>
           <section
@@ -198,80 +207,104 @@ export function PaginaHistorialCitas() {
             aria-busy={cargando}
             className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
           >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  <tr>
-                    <th scope="col" className="px-5 py-4">
-                      Paciente
-                    </th>
-                    <th scope="col" className="px-5 py-4">
-                      Médico
-                    </th>
-                    <th scope="col" className="px-5 py-4">
-                      Fecha
-                    </th>
-                    <th scope="col" className="px-5 py-4">
-                      Hora
-                    </th>
-                    <th scope="col" className="px-5 py-4">
-                      Estado
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {cargando ? (
-                    Array.from({ length: 10 }, (_, indice) => (
-                      <tr key={indice} className="h-20" aria-hidden="true">
-                        {Array.from({ length: 5 }, (_, columna) => (
-                          <td key={columna} className="px-5 py-4">
-                            <div className="h-4 w-full max-w-36 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  ) : citas.length > 0 ? (
-                    citas.map((cita) => (
-                      <tr key={cita.id} className="h-20">
-                        <td className="px-5 py-4 font-medium text-slate-900 dark:text-white">
-                          {nombreCompleto(cita.paciente)}
-                        </td>
-
-                        <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
-                          {nombreCompleto(cita.medico)}
-                        </td>
-
-                        <td className="whitespace-nowrap px-5 py-4">
-                          {formatearFecha(cita.fecha)}
-                        </td>
-
-                        <td className="whitespace-nowrap px-5 py-4">
-                          {formatearHora(cita.hora)}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${estiloEstado(cita.estado)}`}
-                          >
-                            {cita.estado ?? "Sin estado"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
+            {cargando || citas.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                     <tr>
-                      <td
-                        colSpan={5}
-                        className="px-5 py-16 text-center text-slate-500 dark:text-slate-400"
-                      >
-                        No hay citas para esta página y filtro.
-                      </td>
+                      <th scope="col" className="px-5 py-4">
+                        Paciente
+                      </th>
+
+                      <th scope="col" className="px-5 py-4">
+                        Médico
+                      </th>
+
+                      <th scope="col" className="px-5 py-4">
+                        Fecha
+                      </th>
+
+                      <th scope="col" className="px-5 py-4">
+                        Hora
+                      </th>
+
+                      <th scope="col" className="px-5 py-4">
+                        Estado
+                      </th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {cargando
+                      ? Array.from({ length: 10 }, (_, indice) => (
+                          <SkeletonCitaRow key={indice} />
+                        ))
+                      : citas.map((cita) => (
+                          <tr key={cita.id} className="h-20">
+                            <td className="px-5 py-4 font-medium text-slate-900 dark:text-white">
+                              {nombreCompleto(cita.paciente)}
+                            </td>
+
+                            <td className="px-5 py-4 text-slate-600 dark:text-slate-300">
+                              {nombreCompleto(cita.medico)}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4">
+                              {formatearFecha(cita.fecha)}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4">
+                              {formatearHora(cita.hora)}
+                            </td>
+
+                            <td className="px-5 py-4">
+                              <span
+                                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${estiloEstado(cita.estado)}`}
+                              >
+                                {cita.estado ?? "Sin estado"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-4">
+                <EstadoVacio
+                  titulo={
+                    pagina > totalPaginas
+                      ? "Esta página no tiene citas"
+                      : estado !== "Todos"
+                        ? "No hay citas con este estado"
+                        : "No hay citas registradas"
+                  }
+                  descripcion={
+                    pagina > totalPaginas
+                      ? "Vuelve a la primera página para consultar los resultados."
+                      : estado !== "Todos"
+                        ? "Selecciona otro estado o consulta todas las citas."
+                        : "Agenda una cita para comenzar a construir el historial."
+                  }
+                  accion={
+                    pagina > totalPaginas
+                      ? {
+                          label: "Volver a la primera página",
+                          onClick: () => cambiarPagina(1),
+                        }
+                      : estado !== "Todos"
+                        ? {
+                            label: "Mostrar todas",
+                            onClick: () => cambiarEstado("Todos"),
+                          }
+                        : {
+                            label: "Nueva cita",
+                            onClick: () => navigate("/citas/nueva"),
+                          }
+                  }
+                />
+              </div>
+            )}
 
             {cargando && (
               <span role="status" className="sr-only">

@@ -17,5 +17,6 @@ export function useMedicos() {
     medicos,
     cargando,
     error,
+    recargar: cargar,
   };
 }

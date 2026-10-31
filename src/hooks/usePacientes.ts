@@ -3,11 +3,8 @@ import { usePacientesStore } from "../stores/pacientesStore";
 
 export function usePacientes() {
   const pacientes = usePacientesStore((state) => state.opcionesPacientes);
-
   const cargando = usePacientesStore((state) => state.cargandoOpciones);
-
   const error = usePacientesStore((state) => state.errorOpciones);
-
   const cargarOpciones = usePacientesStore((state) => state.cargarOpciones);
 
   useEffect(() => {
@@ -18,5 +15,6 @@ export function usePacientes() {
     pacientes,
     cargando,
     error,
+    recargar: cargarOpciones,
   };
 }

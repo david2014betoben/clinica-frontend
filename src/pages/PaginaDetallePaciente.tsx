@@ -1,20 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
-import toast from "react-hot-toast";
+
 import { CitasDelPaciente } from "../componentes/CitasDelPaciente";
 import { usePacientesStore } from "../stores/pacientesStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { PaginaNotFound } from "./PaginaNotFound";
+
+import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
+import { ErrorBoundary } from "../shared/components/ui/ErrorBoundary";
 
 function formatearFecha(fecha: string | null): string {
   if (!fecha) return "Sin información";
 
   const valor = new Date(fecha);
 
-  if (Number.isNaN(valor.getTime())) {
-    return "Sin información";
-  }
+  if (Number.isNaN(valor.getTime())) return "Sin información";
 
   return new Intl.DateTimeFormat("es-BO", {
     dateStyle: "long",
@@ -22,80 +23,126 @@ function formatearFecha(fecha: string | null): string {
   }).format(valor);
 }
 
+const clasePanel =
+  "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6";
+
+function SkeletonDetallePaciente() {
+  const bloque = "animate-pulse rounded bg-slate-200 dark:bg-slate-700";
+
+  return (
+    <div role="status" className="space-y-6">
+      <span className="sr-only">Cargando paciente...</span>
+
+      <div aria-hidden="true" className="space-y-6">
+        <div className={`${clasePanel} sm:p-7`}>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <div className={`${bloque} size-20 shrink-0 rounded-2xl`} />
+
+            <div className="flex-1 space-y-3">
+              <div className={`${bloque} h-8 w-3/4 max-w-96`} />
+              <div className={`${bloque} h-4 w-36`} />
+              <div className={`${bloque} h-6 w-20`} />
+            </div>
+          </div>
+        </div>
+
+        <div className={`${clasePanel} space-y-4`}>
+          <div className={`${bloque} h-6 w-48`} />
+
+          {Array.from({ length: 3 }, (_, indice) => (
+            <div key={indice} className={`${bloque} h-16 w-full`} />
+          ))}
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          {Array.from({ length: 2 }, (_, indice) => (
+            <div key={indice} className={`${clasePanel} space-y-5`}>
+              <div className={`${bloque} h-6 w-48`} />
+              <div className={`${bloque} h-4 w-full`} />
+
+              {Array.from({ length: 3 }, (_, campo) => (
+                <div key={campo} className="space-y-2">
+                  <div className={`${bloque} h-3 w-28`} />
+                  <div className={`${bloque} h-5 w-2/3`} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface EstadoConsulta {
+  clave: string;
+  error: string | null;
+  noEncontrado: boolean;
+}
+
 export function PaginaDetallePaciente() {
   const { id } = useParams();
 
   const paciente = usePacientesStore((state) => state.pacienteSeleccionado);
-
   const cargarDetalle = usePacientesStore((state) => state.cargarDetalle);
 
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [noEncontrado, setNoEncontrado] = useState(false);
+  const [intento, setIntento] = useState(0);
+  const [consulta, setConsulta] = useState<EstadoConsulta | null>(null);
 
   const idValido =
     id !== undefined &&
     /^[1-9]\d*$/.test(id) &&
     Number.isSafeInteger(Number(id));
 
-  const cargarPaciente = useCallback(
-    async (signal?: AbortSignal) => {
-      if (!idValido || id === undefined) {
-        setCargando(false);
-        return;
-      }
-
-      setCargando(true);
-      setError(null);
-      setNoEncontrado(false);
-
-      try {
-        await cargarDetalle(Number(id), signal);
-      } catch (err: unknown) {
-        if (signal?.aborted) return;
-
-        if (axios.isAxiosError(err)) {
-          if (err.response?.status === 404) {
-            setNoEncontrado(true);
-            return;
-          }
-
-          if (err.response?.status === 403) {
-            const mensaje =
-              "Tu usuario no tiene permiso para consultar el detalle. Esta operación requiere el rol RECEPCIONISTA.";
-
-            setError(mensaje);
-            toast.error(mensaje);
-            return;
-          }
-        }
-
-        const mensaje = extraerMensajeError(err);
-
-        setError(mensaje);
-        toast.error(mensaje);
-      } finally {
-        if (!signal?.aborted) {
-          setCargando(false);
-        }
-      }
-    },
-    [id, idValido, cargarDetalle],
-  );
+  const clave = `${id}-${intento}`;
+  const cargando = consulta?.clave !== clave;
+  const error = cargando ? null : consulta?.error;
+  const noEncontrado = !cargando && consulta?.noEncontrado;
 
   useEffect(() => {
+    if (!idValido || id === undefined) return;
+
     const controller = new AbortController();
 
-    void cargarPaciente(controller.signal);
+    async function cargarPaciente() {
+      try {
+        await cargarDetalle(Number(id), controller.signal);
+
+        if (controller.signal.aborted) return;
+
+        setConsulta({
+          clave,
+          error: null,
+          noEncontrado: false,
+        });
+      } catch (err: unknown) {
+        if (controller.signal.aborted) return;
+
+        const mensaje = extraerMensajeError(err);
+        const status = axios.isAxiosError(err)
+          ? err.response?.status
+          : undefined;
+
+        setConsulta({
+          clave,
+          noEncontrado: status === 404,
+          error:
+            status === 403
+              ? "Tu usuario no tiene permiso para consultar el detalle. Esta operación requiere el rol RECEPCIONISTA."
+              : mensaje,
+        });
+      }
+    }
+
+    void cargarPaciente();
 
     return () => controller.abort();
-  }, [cargarPaciente]);
+  }, [id, idValido, clave, cargarDetalle]);
 
   if (!idValido || noEncontrado) {
     return <PaginaNotFound />;
   }
 
-  // Evita mostrar datos de otro paciente durante un cambio de ruta.
   const pacienteActual = paciente?.id === Number(id) ? paciente : null;
 
   const nombreCompleto = pacienteActual
@@ -109,11 +156,15 @@ export function PaginaDetallePaciente() {
     : "";
 
   const iniciales = pacienteActual
-    ? `${pacienteActual.nombre.charAt(0)}${pacienteActual.ap_paterno.charAt(0)}`.toUpperCase()
+    ? (
+        pacienteActual.nombre.charAt(0) + pacienteActual.ap_paterno.charAt(0)
+      ).toUpperCase()
     : "";
 
+  const reintentar = () => setIntento((actual) => actual + 1);
+
   return (
-    <main className="min-h-[75vh] w-full bg-slate-50 px-4 py-6 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
+    <div className="min-h-[75vh] w-full bg-slate-50 px-4 py-6 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-6xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <nav
@@ -147,37 +198,17 @@ export function PaginaDetallePaciente() {
         </div>
 
         {cargando ? (
-          <div
-            role="status"
-            className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-12 dark:border-slate-800 dark:bg-slate-900"
-          >
-            <span
-              aria-hidden="true"
-              className="size-6 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600"
-            />
-            Cargando paciente...
-          </div>
+          <SkeletonDetallePaciente />
         ) : error ? (
-          <section
-            role="alert"
-            className="rounded-2xl border border-rose-200 bg-white p-6 dark:border-rose-900 dark:bg-slate-900"
-          >
-            <h1 className="text-lg font-semibold text-rose-700 dark:text-rose-300">
-              No se pudo cargar el paciente
-            </h1>
-
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              {error}
-            </p>
-
-            <button
-              type="button"
-              onClick={() => void cargarPaciente()}
-              className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-            >
-              Reintentar
-            </button>
-          </section>
+          <AlertaBanner
+            tipo="error"
+            titulo="No se pudo cargar el paciente"
+            mensaje={error}
+            accion={{
+              label: "Reintentar",
+              onClick: reintentar,
+            }}
+          />
         ) : pacienteActual ? (
           <>
             <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7">
@@ -218,10 +249,26 @@ export function PaginaDetallePaciente() {
                 </div>
               </div>
             </section>
-            <CitasDelPaciente pacienteId={pacienteActual.id} />
+
+            <ErrorBoundary
+              key={`citas-${clave}`}
+              fallback={
+                <AlertaBanner
+                  tipo="error"
+                  titulo="No se pudieron mostrar las citas del paciente"
+                  mensaje="Los datos personales siguen disponibles. Puedes reintentar para volver a cargar esta sección."
+                  accion={{
+                    label: "Reintentar",
+                    onClick: reintentar,
+                  }}
+                />
+              }
+            >
+              <CitasDelPaciente pacienteId={pacienteActual.id} />
+            </ErrorBoundary>
 
             <section className="grid gap-5 lg:grid-cols-2">
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+              <article className={clasePanel}>
                 <div className="mb-5 border-b border-slate-100 pb-4 dark:border-slate-800">
                   <h2 className="font-semibold text-slate-950 dark:text-white">
                     Datos de contacto
@@ -237,7 +284,6 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Correo electrónico
                     </dt>
-
                     <dd className="mt-1 break-all text-sm font-medium text-slate-800 dark:text-slate-200">
                       {pacienteActual.email || "Sin información"}
                     </dd>
@@ -247,7 +293,6 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Teléfono
                     </dt>
-
                     <dd className="mt-1 break-words text-sm font-medium text-slate-800 dark:text-slate-200">
                       {pacienteActual.telefono || "Sin información"}
                     </dd>
@@ -255,7 +300,7 @@ export function PaginaDetallePaciente() {
                 </dl>
               </article>
 
-              <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+              <article className={clasePanel}>
                 <div className="mb-5 border-b border-slate-100 pb-4 dark:border-slate-800">
                   <h2 className="font-semibold text-slate-950 dark:text-white">
                     Información del paciente
@@ -271,7 +316,6 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Fecha de nacimiento
                     </dt>
-
                     <dd className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
                       {formatearFecha(pacienteActual.fecha_nacimiento)}
                     </dd>
@@ -281,7 +325,6 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Especialidad asignada
                     </dt>
-
                     <dd className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
                       Sin información
                     </dd>
@@ -291,7 +334,6 @@ export function PaginaDetallePaciente() {
                     <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
                       Última cita
                     </dt>
-
                     <dd className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
                       Sin información
                     </dd>
@@ -300,8 +342,18 @@ export function PaginaDetallePaciente() {
               </article>
             </section>
           </>
-        ) : null}
+        ) : (
+          <AlertaBanner
+            tipo="advertencia"
+            titulo="El paciente no está disponible"
+            mensaje="No se recibieron los datos del paciente solicitado."
+            accion={{
+              label: "Reintentar",
+              onClick: reintentar,
+            }}
+          />
+        )}
       </div>
-    </main>
+    </div>
   );
 }

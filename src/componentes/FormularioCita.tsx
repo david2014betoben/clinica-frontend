@@ -1,29 +1,35 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import toast from "react-hot-toast";
+
 import { citaSchema, type CitaFormData } from "../schemas/citaSchema";
 import { useMedicos } from "../hooks/useMedicos";
 import { usePacientes } from "../hooks/usePacientes";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { useCitasStore } from "../stores/citasStore";
 
+import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
+import { Spinner } from "../shared/components/ui/Spinner";
+
 function obtenerFechaLocal(): string {
   const hoy = new Date();
-  const anio = hoy.getFullYear();
-  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoy.getDate()).padStart(2, "0");
 
-  return `${anio}-${mes}-${dia}`;
+  return [
+    hoy.getFullYear(),
+    String(hoy.getMonth() + 1).padStart(2, "0"),
+    String(hoy.getDate()).padStart(2, "0"),
+  ].join("-");
 }
 
 function obtenerHoraLocal(): string {
   const ahora = new Date();
-  const horas = String(ahora.getHours()).padStart(2, "0");
-  const minutos = String(ahora.getMinutes()).padStart(2, "0");
 
-  return `${horas}:${minutos}`;
+  return [
+    String(ahora.getHours()).padStart(2, "0"),
+    String(ahora.getMinutes()).padStart(2, "0"),
+  ].join(":");
 }
 
 const urgencias: Array<{
@@ -49,18 +55,35 @@ function clasesValidacion(conError: boolean): string {
     : "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500/15 dark:border-slate-700";
 }
 
+function SkeletonSelector({ mensaje }: { mensaje: string }) {
+  return (
+    <div role="status" className="flex h-11 items-center">
+      <span className="sr-only">{mensaje}</span>
+
+      <div
+        aria-hidden="true"
+        className="h-11 w-full animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700"
+      />
+    </div>
+  );
+}
+
 export function FormularioCita() {
   const {
     medicos,
     cargando: cargandoMedicos,
     error: errorMedicos,
+    recargar: recargarMedicos,
   } = useMedicos();
 
   const {
     pacientes,
     cargando: cargandoPacientes,
     error: errorPacientes,
+    recargar: recargarPacientes,
   } = usePacientes();
+
+  const agregarCita = useCitasStore((state) => state.agregarCita);
 
   const [citaConfirmada, setCitaConfirmada] = useState<CitaFormData | null>(
     null,
@@ -70,7 +93,7 @@ export function FormularioCita() {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CitaFormData>({
     resolver: zodResolver(citaSchema),
@@ -85,19 +108,40 @@ export function FormularioCita() {
     },
   });
 
-  const fechaSeleccionada = watch("fecha");
-  const urgenciaSeleccionada = watch("urgencia");
-  const motivoSeleccionado = watch("motivo") ?? "";
+  const fechaSeleccionada = useWatch({
+    control,
+    name: "fecha",
+  });
+
+  const urgenciaSeleccionada = useWatch({
+    control,
+    name: "urgencia",
+  });
+
+  const motivoSeleccionado = useWatch({ control, name: "motivo" }) ?? "";
 
   const cargandoOpciones = cargandoMedicos || cargandoPacientes;
   const errorOpciones = errorPacientes ?? errorMedicos;
-  const agregarCita = useCitasStore((state) => state.agregarCita);
+
+  const faltanOpciones =
+    !cargandoOpciones &&
+    !errorOpciones &&
+    (pacientes.length === 0 || medicos.length === 0);
+
+  async function reintentarOpciones() {
+    try {
+      await Promise.all([recargarPacientes(), recargarMedicos()]);
+    } catch (err: unknown) {
+      toast.error(extraerMensajeError(err));
+    }
+  }
 
   async function onSubmit(datos: CitaFormData) {
+    if (cargandoOpciones || errorOpciones || faltanOpciones) return;
+
     const paciente = pacientes.find(
       (item) => item.id === Number(datos.pacienteId),
     );
-
     const medico = medicos.find((item) => item.id === datos.medicoId);
 
     if (!paciente || !medico) {
@@ -113,17 +157,15 @@ export function FormularioCita() {
         hora: datos.hora,
       });
 
-      const pacienteNombre = [
-        paciente.nombre,
-        paciente.ap_paterno,
-        paciente.ap_materno,
-      ]
-        .filter(Boolean)
-        .join(" ");
-
       setCitaConfirmada({
         ...datos,
-        pacienteNombre,
+        pacienteNombre: [
+          paciente.nombre,
+          paciente.ap_paterno,
+          paciente.ap_materno,
+        ]
+          .filter(Boolean)
+          .join(" "),
       });
 
       reset();
@@ -153,25 +195,11 @@ export function FormularioCita() {
 
     return (
       <section className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-900 dark:bg-slate-900 sm:p-7">
-        <div className="flex items-start gap-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-xl font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-            ✓
-          </div>
-
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Confirmación
-            </p>
-
-            <h2 className="mt-1 text-xl font-bold text-slate-950 dark:text-white">
-              ¡Cita agendada con éxito!
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              La cita se guardó correctamente en el sistema.
-            </p>
-          </div>
-        </div>
+        <AlertaBanner
+          tipo="exito"
+          titulo="¡Cita agendada con éxito!"
+          mensaje="La cita se guardó correctamente en el sistema."
+        />
 
         <dl className="mt-6 grid gap-4 border-t border-slate-100 pt-5 dark:border-slate-800 sm:grid-cols-2">
           <div>
@@ -208,10 +236,11 @@ export function FormularioCita() {
           </div>
         </dl>
 
-        <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-            Información temporal: el motivo y la urgencia no se guardaron.
-          </p>
+        <div className="mt-5">
+          <AlertaBanner
+            tipo="advertencia"
+            mensaje="Información temporal: el motivo y la urgencia no se guardaron."
+          />
 
           <dl className="mt-3 space-y-3 text-sm">
             <div>
@@ -260,32 +289,37 @@ export function FormularioCita() {
         <h2 className="text-lg font-semibold text-slate-950 dark:text-white">
           Datos de la cita
         </h2>
-
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
           Los campos marcados son necesarios para agendar.
         </p>
       </div>
 
       {errorOpciones && (
-        <p
-          role="alert"
-          className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
-        >
-          No se pudieron cargar las opciones: {errorOpciones}. Recarga para
-          reintentar.
-        </p>
+        <div className="mb-5">
+          <AlertaBanner
+            tipo="error"
+            titulo="No se pudieron cargar las opciones"
+            mensaje={errorOpciones}
+            accion={
+              cargandoOpciones
+                ? undefined
+                : {
+                    label: "Reintentar",
+                    onClick: () => void reintentarOpciones(),
+                  }
+            }
+          />
+        </div>
       )}
 
-      {!cargandoOpciones &&
-        !errorOpciones &&
-        (pacientes.length === 0 || medicos.length === 0) && (
-          <p
-            role="status"
-            className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
-          >
-            Debe existir al menos un paciente y un médico para agendar.
-          </p>
-        )}
+      {faltanOpciones && (
+        <div className="mb-5">
+          <AlertaBanner
+            tipo="advertencia"
+            mensaje="Debe existir al menos un paciente y un médico para agendar."
+          />
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
         <fieldset disabled={isSubmitting} className="space-y-6">
@@ -295,37 +329,42 @@ export function FormularioCita() {
                 Paciente registrado <span className="text-rose-500">*</span>
               </label>
 
-              <select
-                id="pacienteId"
-                disabled={cargandoPacientes || isSubmitting}
-                aria-invalid={Boolean(errors.pacienteId)}
-                aria-describedby={
-                  errors.pacienteId ? "error-paciente" : undefined
-                }
-                {...register("pacienteId")}
-                className={`${clasesControl} ${clasesValidacion(
-                  Boolean(errors.pacienteId),
-                )}`}
-              >
-                <option value="">
-                  {cargandoPacientes
-                    ? "Cargando pacientes..."
-                    : "Selecciona un paciente"}
-                </option>
+              {cargandoPacientes ? (
+                <SkeletonSelector mensaje="Cargando pacientes..." />
+              ) : (
+                <select
+                  id="pacienteId"
+                  disabled={Boolean(errorPacientes) || isSubmitting}
+                  aria-invalid={Boolean(errors.pacienteId)}
+                  aria-describedby={
+                    errors.pacienteId ? "error-paciente" : undefined
+                  }
+                  {...register("pacienteId")}
+                  className={`${clasesControl} ${clasesValidacion(
+                    Boolean(errors.pacienteId),
+                  )}`}
+                >
+                  <option value="">Selecciona un paciente</option>
 
-                {pacientes.map((paciente) => (
-                  <option key={paciente.id} value={paciente.id}>
-                    {[paciente.nombre, paciente.ap_paterno, paciente.ap_materno]
-                      .filter(Boolean)
-                      .join(" ")}{" "}
-                    — #{paciente.id}
-                  </option>
-                ))}
-              </select>
+                  {pacientes.map((paciente) => (
+                    <option key={paciente.id} value={paciente.id}>
+                      {[
+                        paciente.nombre,
+                        paciente.ap_paterno,
+                        paciente.ap_materno,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}{" "}
+                      — #{paciente.id}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {errors.pacienteId && (
                 <p
                   id="error-paciente"
+                  role="alert"
                   className="mt-1.5 text-sm text-rose-600 dark:text-rose-400"
                 >
                   {errors.pacienteId.message}
@@ -338,32 +377,35 @@ export function FormularioCita() {
                 Médico especialista <span className="text-rose-500">*</span>
               </label>
 
-              <select
-                id="medicoId"
-                disabled={cargandoMedicos || isSubmitting}
-                aria-invalid={Boolean(errors.medicoId)}
-                aria-describedby={errors.medicoId ? "error-medico" : undefined}
-                {...register("medicoId")}
-                className={`${clasesControl} ${clasesValidacion(
-                  Boolean(errors.medicoId),
-                )}`}
-              >
-                <option value="">
-                  {cargandoMedicos
-                    ? "Cargando médicos..."
-                    : "Selecciona un médico"}
-                </option>
+              {cargandoMedicos ? (
+                <SkeletonSelector mensaje="Cargando médicos..." />
+              ) : (
+                <select
+                  id="medicoId"
+                  disabled={Boolean(errorMedicos) || isSubmitting}
+                  aria-invalid={Boolean(errors.medicoId)}
+                  aria-describedby={
+                    errors.medicoId ? "error-medico" : undefined
+                  }
+                  {...register("medicoId")}
+                  className={`${clasesControl} ${clasesValidacion(
+                    Boolean(errors.medicoId),
+                  )}`}
+                >
+                  <option value="">Selecciona un médico</option>
 
-                {medicos.map((medico) => (
-                  <option key={medico.id} value={medico.id}>
-                    {medico.nombre} — {medico.especialidad}
-                  </option>
-                ))}
-              </select>
+                  {medicos.map((medico) => (
+                    <option key={medico.id} value={medico.id}>
+                      {medico.nombre} — {medico.especialidad}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {errors.medicoId && (
                 <p
                   id="error-medico"
+                  role="alert"
                   className="mt-1.5 text-sm text-rose-600 dark:text-rose-400"
                 >
                   {errors.medicoId.message}
@@ -381,6 +423,7 @@ export function FormularioCita() {
                 type="date"
                 min={obtenerFechaLocal()}
                 aria-invalid={Boolean(errors.fecha)}
+                aria-describedby={errors.fecha ? "error-fecha" : undefined}
                 {...register("fecha")}
                 className={`${clasesControl} ${clasesValidacion(
                   Boolean(errors.fecha),
@@ -388,7 +431,11 @@ export function FormularioCita() {
               />
 
               {errors.fecha && (
-                <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+                <p
+                  id="error-fecha"
+                  role="alert"
+                  className="mt-1.5 text-sm text-rose-600 dark:text-rose-400"
+                >
                   {errors.fecha.message}
                 </p>
               )}
@@ -409,18 +456,28 @@ export function FormularioCita() {
                     : undefined
                 }
                 aria-invalid={Boolean(errors.hora)}
+                aria-describedby={
+                  errors.hora ? "ayuda-hora error-hora" : "ayuda-hora"
+                }
                 {...register("hora")}
                 className={`${clasesControl} ${clasesValidacion(
                   Boolean(errors.hora),
                 )}`}
               />
 
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p
+                id="ayuda-hora"
+                className="mt-1 text-xs text-slate-500 dark:text-slate-400"
+              >
                 Selecciona minutos 00 o 30.
               </p>
 
               {errors.hora && (
-                <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+                <p
+                  id="error-hora"
+                  role="alert"
+                  className="mt-1.5 text-sm text-rose-600 dark:text-rose-400"
+                >
                   {errors.hora.message}
                 </p>
               )}
@@ -428,10 +485,12 @@ export function FormularioCita() {
           </div>
 
           <div>
-            <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-              El motivo y la urgencia se muestran en la confirmación, pero
-              todavía no se guardan en el sistema.
-            </p>
+            <div className="mb-4">
+              <AlertaBanner
+                tipo="info"
+                mensaje="El motivo y la urgencia se muestran en la confirmación, pero todavía no se guardan en el sistema."
+              />
+            </div>
 
             <div className="mb-1.5 flex items-center justify-between gap-3">
               <label htmlFor="motivo" className={clasesLabel}>
@@ -449,6 +508,7 @@ export function FormularioCita() {
               maxLength={500}
               placeholder="Describe brevemente el motivo de la cita..."
               aria-invalid={Boolean(errors.motivo)}
+              aria-describedby={errors.motivo ? "error-motivo" : undefined}
               {...register("motivo")}
               className={`${clasesControl} resize-y ${clasesValidacion(
                 Boolean(errors.motivo),
@@ -456,7 +516,11 @@ export function FormularioCita() {
             />
 
             {errors.motivo && (
-              <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+              <p
+                id="error-motivo"
+                role="alert"
+                className="mt-1.5 text-sm text-rose-600 dark:text-rose-400"
+              >
                 {errors.motivo.message}
               </p>
             )}
@@ -499,7 +563,10 @@ export function FormularioCita() {
             </div>
 
             {errors.urgencia && (
-              <p className="mt-1.5 text-sm text-rose-600 dark:text-rose-400">
+              <p
+                role="alert"
+                className="mt-1.5 text-sm text-rose-600 dark:text-rose-400"
+              >
                 {errors.urgencia.message}
               </p>
             )}
@@ -518,13 +585,7 @@ export function FormularioCita() {
             }
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
-            {isSubmitting && (
-              <span
-                aria-hidden="true"
-                className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
-              />
-            )}
-
+            {isSubmitting && <Spinner mensaje="Agendando cita..." />}
             {isSubmitting ? "Agendando..." : "Agendar cita"}
           </button>
         </div>

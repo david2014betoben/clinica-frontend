@@ -6,6 +6,10 @@ import { StatusBadge } from "../componentes/StatusBadge";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { useDashboardStore } from "../stores/dashboardStore";
 
+import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
+import { SkeletonMetricCard } from "../shared/components/ui/Skeletons";
+import { Spinner } from "../shared/components/ui/Spinner";
+
 const estilosPorTendencia: Record<
   Metrica["tendencia"],
   { icono: string; acento: string }
@@ -33,7 +37,6 @@ export function PaginaDashboard() {
   const totales = useDashboardStore((state) => state.totales);
   const cargando = useDashboardStore((state) => state.cargando);
   const error = useDashboardStore((state) => state.error);
-
   const cargarMetricas = useDashboardStore((state) => state.cargarMetricas);
 
   const actualizarMetricas = useCallback(async () => {
@@ -114,8 +117,9 @@ export function PaginaDashboard() {
             type="button"
             disabled={cargando}
             onClick={() => void actualizarMetricas()}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
+            {cargando && <Spinner mensaje="Actualizando métricas..." />}
             {cargando ? "Actualizando..." : "Actualizar"}
           </button>
         </div>
@@ -182,38 +186,27 @@ export function PaginaDashboard() {
 
       <section aria-label="Métricas del sistema" aria-busy={cargando}>
         {cargando ? (
-          <div
-            role="status"
-            className="flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white p-10 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-          >
-            <span
-              aria-hidden="true"
-              className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600"
-            />
+          <>
+            <span role="status" className="sr-only">
+              Cargando métricas...
+            </span>
 
-            <span>Cargando métricas...</span>
-          </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+              {Array.from({ length: 4 }, (_, indice) => (
+                <SkeletonMetricCard key={indice} />
+              ))}
+            </div>
+          </>
         ) : error ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-rose-200 bg-rose-50 p-6 dark:border-rose-900 dark:bg-rose-950/30"
-          >
-            <p className="font-medium text-rose-700 dark:text-rose-300">
-              No se pudieron cargar las métricas.
-            </p>
-
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Revisa que el backend esté encendido e intenta nuevamente.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => void actualizarMetricas()}
-              className="mt-4 rounded-lg bg-rose-600 px-4 py-2 font-semibold text-white transition hover:bg-rose-700"
-            >
-              Reintentar
-            </button>
-          </div>
+          <AlertaBanner
+            tipo="error"
+            titulo="No se pudieron cargar las métricas"
+            mensaje="Comprueba tu conexión e intenta nuevamente."
+            accion={{
+              label: "Reintentar",
+              onClick: () => void actualizarMetricas(),
+            }}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             {metricas.map((metrica) => {
@@ -222,7 +215,7 @@ export function PaginaDashboard() {
               return (
                 <article
                   key={metrica.id}
-                  className="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                  className="flex min-h-44 min-w-0 flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="min-w-0 font-medium text-slate-600 dark:text-slate-300">

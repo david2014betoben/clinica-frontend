@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { useState } from "react";
 
 import type { Metrica } from "../types";
 import { StatusBadge } from "../componentes/StatusBadge";
-import { extraerMensajeError } from "../lib/errorHandler";
-import { useDashboardStore } from "../stores/dashboardStore";
+import { useDashboard } from "../features/dashboard/hooks/useDashboard";
 
 import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
 import { SkeletonMetricCard } from "../shared/components/ui/Skeletons";
@@ -34,22 +32,7 @@ const estilosPorTendencia: Record<
 export function PaginaDashboard() {
   const [mantenimiento, setMantenimiento] = useState(false);
 
-  const totales = useDashboardStore((state) => state.totales);
-  const cargando = useDashboardStore((state) => state.cargando);
-  const error = useDashboardStore((state) => state.error);
-  const cargarMetricas = useDashboardStore((state) => state.cargarMetricas);
-
-  const actualizarMetricas = useCallback(async () => {
-    try {
-      await cargarMetricas();
-    } catch (err: unknown) {
-      toast.error(extraerMensajeError(err));
-    }
-  }, [cargarMetricas]);
-
-  useEffect(() => {
-    void actualizarMetricas();
-  }, [actualizarMetricas]);
+  const { totales, cargando, error, actualizarMetricas } = useDashboard();
 
   const fechaActual = new Intl.DateTimeFormat("es-BO", {
     timeZone: "America/La_Paz",

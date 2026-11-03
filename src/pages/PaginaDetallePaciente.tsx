@@ -1,10 +1,7 @@
-import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import axios from "axios";
 
 import { CitasDelPaciente } from "../componentes/CitasDelPaciente";
-import { usePacientesStore } from "../stores/pacientesStore";
-import { extraerMensajeError } from "../lib/errorHandler";
+import { useDetallePaciente } from "../features/pacientes/hooks/useDetallePaciente";
 import { PaginaNotFound } from "./PaginaNotFound";
 
 import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
@@ -74,76 +71,22 @@ function SkeletonDetallePaciente() {
   );
 }
 
-interface EstadoConsulta {
-  clave: string;
-  error: string | null;
-  noEncontrado: boolean;
-}
-
 export function PaginaDetallePaciente() {
   const { id } = useParams();
 
-  const paciente = usePacientesStore((state) => state.pacienteSeleccionado);
-  const cargarDetalle = usePacientesStore((state) => state.cargarDetalle);
-
-  const [intento, setIntento] = useState(0);
-  const [consulta, setConsulta] = useState<EstadoConsulta | null>(null);
-
-  const idValido =
-    id !== undefined &&
-    /^[1-9]\d*$/.test(id) &&
-    Number.isSafeInteger(Number(id));
-
-  const clave = `${id}-${intento}`;
-  const cargando = consulta?.clave !== clave;
-  const error = cargando ? null : consulta?.error;
-  const noEncontrado = !cargando && consulta?.noEncontrado;
-
-  useEffect(() => {
-    if (!idValido || id === undefined) return;
-
-    const controller = new AbortController();
-
-    async function cargarPaciente() {
-      try {
-        await cargarDetalle(Number(id), controller.signal);
-
-        if (controller.signal.aborted) return;
-
-        setConsulta({
-          clave,
-          error: null,
-          noEncontrado: false,
-        });
-      } catch (err: unknown) {
-        if (controller.signal.aborted) return;
-
-        const mensaje = extraerMensajeError(err);
-        const status = axios.isAxiosError(err)
-          ? err.response?.status
-          : undefined;
-
-        setConsulta({
-          clave,
-          noEncontrado: status === 404,
-          error:
-            status === 403
-              ? "Tu usuario no tiene permiso para consultar el detalle. Esta operación requiere el rol RECEPCIONISTA."
-              : mensaje,
-        });
-      }
-    }
-
-    void cargarPaciente();
-
-    return () => controller.abort();
-  }, [id, idValido, clave, cargarDetalle]);
+  const {
+    paciente: pacienteActual,
+    cargando,
+    error,
+    idValido,
+    noEncontrado,
+    clave,
+    reintentar,
+  } = useDetallePaciente(id);
 
   if (!idValido || noEncontrado) {
     return <PaginaNotFound />;
   }
-
-  const pacienteActual = paciente?.id === Number(id) ? paciente : null;
 
   const nombreCompleto = pacienteActual
     ? [
@@ -160,8 +103,6 @@ export function PaginaDetallePaciente() {
         pacienteActual.nombre.charAt(0) + pacienteActual.ap_paterno.charAt(0)
       ).toUpperCase()
     : "";
-
-  const reintentar = () => setIntento((actual) => actual + 1);
 
   return (
     <div className="min-h-[75vh] w-full bg-slate-50 px-4 py-6 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8">

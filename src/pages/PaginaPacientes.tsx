@@ -1,39 +1,31 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { BuscadorPacientes } from "../componentes/BuscadorPacientes";
 import { PacienteCard } from "../componentes/PacienteCard";
 import { FormularioPaciente } from "../componentes/FormularioPaciente";
 
-import { useDebounce } from "../hooks/useDebounce";
-import { usePacientesStore } from "../stores/pacientesStore";
-import { useFiltrosStore } from "../stores/filtrosStore";
+import { usePacientes } from "../features/pacientes/hooks/usePacientes";
 
 import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
 import { EstadoVacio } from "../shared/components/ui/EstadoVacio";
 import { SkeletonPacienteRow } from "../shared/components/ui/Skeletons";
 
 export function PaginaPacientes() {
-  const pacientes = usePacientesStore((state) => state.pacientes);
-  const total = usePacientesStore((state) => state.total);
-  const pagina = usePacientesStore((state) => state.pagina);
-  const totalPaginas = usePacientesStore((state) => state.totalPaginas);
-  const cargando = usePacientesStore((state) => state.cargando);
-  const error = usePacientesStore((state) => state.error);
-  const cargar = usePacientesStore((state) => state.cargar);
-
-  const busqueda = useFiltrosStore((state) => state.queryPacientes);
-  const setBusqueda = useFiltrosStore((state) => state.setQueryPacientes);
-  const resetFiltros = useFiltrosStore((state) => state.resetFiltros);
-
-  const busquedaDebounced = useDebounce(busqueda, 350);
-  const esperandoDebounce = busqueda !== busquedaDebounced;
-  const buscando = cargando || esperandoDebounce;
+  const {
+    pacientes,
+    total,
+    pagina,
+    totalPaginas,
+    error,
+    cargar,
+    busqueda,
+    busquedaDebounced,
+    buscando,
+    setBusqueda,
+    resetFiltros,
+  } = usePacientes();
 
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-
-  useEffect(() => {
-    void cargar(busquedaDebounced, 1);
-  }, [cargar, busquedaDebounced]);
 
   const claseBoton =
     "rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";

@@ -6,22 +6,20 @@ import toast from "react-hot-toast";
 import { InputFotoPerfil } from "../componentes/InputFotoPerfil";
 import { perfilSchema } from "../schemas/perfilSchema";
 import type { PerfilFormData } from "../schemas/perfilSchema";
-import { actualizarPerfil } from "../services/perfil";
-import { useAuthStore } from "../stores/authStore";
+
+import { useAuth } from "../features/auth/hooks/useAuth";
 import { extraerMensajeError } from "../lib/errorHandler";
 
 function obtenerUrlFoto(foto?: string | null): string | undefined {
   if (!foto) return undefined;
 
-  // Las fotos se sirven desde /uploads, fuera de /api.
   const base = new URL(import.meta.env.VITE_API_URL, window.location.origin);
 
   return new URL(foto, base.origin).href;
 }
 
 export function PaginaPerfil() {
-  const usuario = useAuthStore((state) => state.usuario);
-  const actualizarUsuario = useAuthStore((state) => state.actualizarUsuario);
+  const { usuario, guardarPerfil } = useAuth();
 
   const [archivoFoto, setArchivoFoto] = useState<File | null>(null);
   const [versionFoto, setVersionFoto] = useState(0);
@@ -52,9 +50,7 @@ export function PaginaPerfil() {
     }
 
     try {
-      const actualizado = await actualizarPerfil(formData);
-
-      actualizarUsuario(actualizado);
+      const actualizado = await guardarPerfil(formData);
 
       reset({
         nombre: actualizado.nombre,

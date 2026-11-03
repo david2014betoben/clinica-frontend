@@ -6,8 +6,7 @@ import toast from "react-hot-toast";
 
 import { loginSchema, type LoginFormData } from "../schemas/loginSchema";
 
-import { login } from "../services/auth";
-import { useAuthStore } from "../stores/authStore";
+import { useAuth } from "../features/auth/hooks/useAuth";
 import { extraerMensajeError } from "../lib/errorHandler";
 
 const estiloLabel =
@@ -24,8 +23,7 @@ function clasesInput(conError: boolean): string {
 
 export function PaginaLogin() {
   const navigate = useNavigate();
-
-  const guardarSesion = useAuthStore((state) => state.login);
+  const { iniciarSesion } = useAuth();
 
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [errorServidor, setErrorServidor] = useState("");
@@ -36,7 +34,6 @@ export function PaginaLogin() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-
     defaultValues: {
       email: "",
       password: "",
@@ -47,12 +44,9 @@ export function PaginaLogin() {
     setErrorServidor("");
 
     try {
-      const respuesta = await login(datos);
-
-      guardarSesion(respuesta.token, respuesta.usuario);
+      await iniciarSesion(datos);
 
       toast.success("¡Bienvenido a MediPulse!");
-
       navigate("/", { replace: true });
     } catch (err: unknown) {
       const mensaje = extraerMensajeError(err);

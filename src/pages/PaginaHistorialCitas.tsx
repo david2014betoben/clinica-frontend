@@ -1,25 +1,11 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-import { getHistorial } from "../services/citas";
-import type { Cita, EstadoHistorial } from "../services/citas";
-import type { RespuestaPaginada } from "../types/api";
-import { extraerMensajeError } from "../lib/errorHandler";
+import { useHistorialCitas } from "../features/citas/hooks/useHistorialCitas";
+import type { Cita } from "../services/citas";
 
 import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
 import { EstadoVacio } from "../shared/components/ui/EstadoVacio";
 import { SkeletonCitaRow } from "../shared/components/ui/Skeletons";
-
-const estados: EstadoHistorial[] = [
-  "Todos",
-  "Programada",
-  "Completada",
-  "Cancelada",
-];
-
-function esEstadoHistorial(valor: string | null): valor is EstadoHistorial {
-  return estados.some((estado) => estado === valor);
-}
 
 function formatearFecha(fecha: string): string {
   const valor = new Date(fecha);
@@ -71,86 +57,23 @@ function estiloEstado(estado: Cita["estado"]): string {
   }
 }
 
-interface ResultadoCarga {
-  clave: string;
-  respuesta: RespuestaPaginada<Cita> | null;
-  error: string | null;
-}
-
 export function PaginaHistorialCitas() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [intento, setIntento] = useState(0);
-  const [resultado, setResultado] = useState<ResultadoCarga | null>(null);
-
-  const paginaURL = Number(searchParams.get("pagina"));
-
-  const pagina =
-    Number.isSafeInteger(paginaURL) && paginaURL > 0 ? paginaURL : 1;
-
-  const estadoURL = searchParams.get("estado");
-
-  const estado: EstadoHistorial = esEstadoHistorial(estadoURL)
-    ? estadoURL
-    : "Todos";
-
-  const clave = `${pagina}-${estado}-${intento}`;
-  const cargando = resultado?.clave !== clave;
-  const error = cargando ? null : resultado?.error;
-  const respuesta = cargando ? null : resultado?.respuesta;
-
-  const citas = respuesta?.data ?? [];
-  const totalPaginas = respuesta?.totalPaginas ?? 1;
-  const total = respuesta?.total ?? 0;
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function cargar() {
-      try {
-        const datos = await getHistorial({
-          pagina,
-          estado,
-          signal: controller.signal,
-        });
-
-        if (controller.signal.aborted) return;
-
-        setResultado({
-          clave,
-          respuesta: datos,
-          error: null,
-        });
-      } catch (err: unknown) {
-        if (controller.signal.aborted) return;
-
-        setResultado({
-          clave,
-          respuesta: null,
-          error: extraerMensajeError(err),
-        });
-      }
-    }
-
-    void cargar();
-
-    return () => controller.abort();
-  }, [pagina, estado, clave]);
-
-  const cambiarEstado = (nuevoEstado: EstadoHistorial) => {
-    setSearchParams({
-      pagina: "1",
-      estado: nuevoEstado,
-    });
-  };
-
-  const cambiarPagina = (nuevaPagina: number) => {
-    setSearchParams({
-      pagina: String(nuevaPagina),
-      estado,
-    });
-  };
+  const {
+    citas,
+    cargando,
+    error,
+    pagina,
+    totalPaginas,
+    total,
+    estado,
+    estados,
+    cambiarEstado,
+    seleccionarEstado,
+    cambiarPagina,
+    recargar,
+  } = useHistorialCitas();
 
   const claseBoton =
     "rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
@@ -172,13 +95,7 @@ export function PaginaHistorialCitas() {
           Estado
           <select
             value={estado}
-            onChange={(evento) => {
-              const valor = evento.target.value;
-
-              if (esEstadoHistorial(valor)) {
-                cambiarEstado(valor);
-              }
-            }}
+            onChange={(evento) => seleccionarEstado(evento.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             {estados.map((opcion) => (
@@ -197,7 +114,7 @@ export function PaginaHistorialCitas() {
           mensaje={error}
           accion={{
             label: "Reintentar",
-            onClick: () => setIntento((actual) => actual + 1),
+            onClick: recargar,
           }}
         />
       ) : (
@@ -215,19 +132,15 @@ export function PaginaHistorialCitas() {
                       <th scope="col" className="px-5 py-4">
                         Paciente
                       </th>
-
                       <th scope="col" className="px-5 py-4">
                         Médico
                       </th>
-
                       <th scope="col" className="px-5 py-4">
                         Fecha
                       </th>
-
                       <th scope="col" className="px-5 py-4">
                         Hora
                       </th>
-
                       <th scope="col" className="px-5 py-4">
                         Estado
                       </th>

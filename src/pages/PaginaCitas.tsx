@@ -1,7 +1,5 @@
 import {
   startTransition,
-  useCallback,
-  useEffect,
   useMemo,
   useOptimistic,
   useRef,
@@ -10,8 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { useCitasStore } from "../stores/citasStore";
-import { useFiltrosStore } from "../stores/filtrosStore";
+import { useCitas } from "../features/citas/hooks/useCitas";
 import { extraerMensajeError } from "../lib/errorHandler";
 
 import type { Cita, EstadoCita, NuevoEstadoCita } from "../services/citas";
@@ -246,15 +243,16 @@ function SkeletonCitas() {
 export function PaginaCitas() {
   const navigate = useNavigate();
 
-  const citas = useCitasStore((state) => state.citas);
-  const cargando = useCitasStore((state) => state.cargando);
-  const cargar = useCitasStore((state) => state.cargar);
-  const actualizarEstado = useCitasStore((state) => state.actualizarEstado);
+  const {
+    citas,
+    cargando,
+    error,
+    cargar: cargarCitas,
+    actualizarEstado,
+    estadoFiltro,
+    setEstadoFiltro,
+  } = useCitas();
 
-  const estadoFiltro = useFiltrosStore((state) => state.estadoCitaFiltro);
-  const setEstadoFiltro = useFiltrosStore((state) => state.setEstadoCita);
-
-  const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [fechaFiltro, setFechaFiltro] = useState("");
   const [pagina, setPagina] = useState(1);
@@ -270,22 +268,6 @@ export function PaginaCitas() {
         cita.id === cambio.id ? { ...cita, estado: cambio.estado } : cita,
       ),
   );
-
-  const cargarCitas = useCallback(async () => {
-    setError(null);
-
-    try {
-      await cargar();
-    } catch (err: unknown) {
-      const mensaje = extraerMensajeError(err);
-      setError(mensaje);
-      toast.error(mensaje);
-    }
-  }, [cargar]);
-
-  useEffect(() => {
-    void cargarCitas();
-  }, [cargarCitas]);
 
   const cambiarEstado = (id: number, nuevoEstado: NuevoEstadoCita) => {
     const citaActual = citas.find((cita) => cita.id === id);

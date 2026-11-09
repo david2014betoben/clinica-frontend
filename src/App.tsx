@@ -1,32 +1,74 @@
+import { lazy, Suspense } from "react";
 import type { ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
-
 import { Layout } from "./layouts/Layout";
 import { PaginaDashboard } from "./pages/PaginaDashboard";
-import { PaginaPacientes } from "./pages/PaginaPacientes";
-import { PaginaDetallePaciente } from "./pages/PaginaDetallePaciente";
-import { PaginaNuevaCita } from "./pages/PaginaNuevaCita";
-import { PaginaNotFound } from "./pages/PaginaNotFound";
-import { PaginaCitas } from "./pages/PaginaCitas";
-import { PaginaReportes } from "./pages/PaginaReportes";
 import { PaginaLogin } from "./pages/PaginaLogin";
-import { PaginaSinAcceso } from "./pages/PaginaSinAcceso";
-import { PaginaPerfil } from "./pages/PaginaPerfil";
-import { PaginaHistorialCitas } from "./pages/PaginaHistorialCitas";
-
 import { ErrorBoundary } from "./shared/components/ui/ErrorBoundary";
 import { AlertaBanner } from "./shared/components/ui/AlertaBanner";
+import { Spinner } from "./shared/components/ui/Spinner";
+import { useAuth } from "./features/auth/hooks/useAuth";
 
-import { useAuthStore } from "./stores/authStore";
+const PaginaPacientes = lazy(() =>
+  import("./pages/PaginaPacientes").then((modulo) => ({
+    default: modulo.PaginaPacientes,
+  })),
+);
+
+const PaginaDetallePaciente = lazy(() =>
+  import("./pages/PaginaDetallePaciente").then((modulo) => ({
+    default: modulo.PaginaDetallePaciente,
+  })),
+);
+
+const PaginaNuevaCita = lazy(() =>
+  import("./pages/PaginaNuevaCita").then((modulo) => ({
+    default: modulo.PaginaNuevaCita,
+  })),
+);
+
+const PaginaNotFound = lazy(() =>
+  import("./pages/PaginaNotFound").then((modulo) => ({
+    default: modulo.PaginaNotFound,
+  })),
+);
+
+const PaginaCitas = lazy(() =>
+  import("./pages/PaginaCitas").then((modulo) => ({
+    default: modulo.PaginaCitas,
+  })),
+);
+
+const PaginaReportes = lazy(() =>
+  import("./pages/PaginaReportes").then((modulo) => ({
+    default: modulo.PaginaReportes,
+  })),
+);
+
+const PaginaSinAcceso = lazy(() =>
+  import("./pages/PaginaSinAcceso").then((modulo) => ({
+    default: modulo.PaginaSinAcceso,
+  })),
+);
+
+const PaginaPerfil = lazy(() =>
+  import("./pages/PaginaPerfil").then((modulo) => ({
+    default: modulo.PaginaPerfil,
+  })),
+);
+
+const PaginaHistorialCitas = lazy(() =>
+  import("./pages/PaginaHistorialCitas").then((modulo) => ({
+    default: modulo.PaginaHistorialCitas,
+  })),
+);
 
 interface RutaProtegidaProps {
   rolesPermitidos?: string[];
 }
 
 function RutaProtegida({ rolesPermitidos }: RutaProtegidaProps) {
-  const token = useAuthStore((state) => state.token);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const usuario = useAuthStore((state) => state.usuario);
+  const { token, isAuthenticated, usuario } = useAuth();
 
   if (!token || !isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -40,8 +82,7 @@ function RutaProtegida({ rolesPermitidos }: RutaProtegidaProps) {
 }
 
 function RutaLogin() {
-  const token = useAuthStore((state) => state.token);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { token, isAuthenticated } = useAuth();
 
   if (token && isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -82,98 +123,114 @@ function SeccionProtegida({ nombre, children }: SeccionProtegidaProps) {
 
 function App() {
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={
-          <SeccionProtegida nombre="el inicio de sesión">
-            <RutaLogin />
-          </SeccionProtegida>
-        }
-      />
+    <Suspense fallback={<Spinner fullscreen mensaje="Cargando página..." />}>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <SeccionProtegida nombre="el inicio de sesión">
+              <RutaLogin />
+            </SeccionProtegida>
+          }
+        />
 
-      <Route element={<RutaProtegida />}>
-        <Route element={<Layout />}>
-          <Route
-            path="/"
-            element={
-              <SeccionProtegida nombre="el dashboard">
-                <PaginaDashboard />
-              </SeccionProtegida>
-            }
-          />
-
-          <Route
-            path="/pacientes"
-            element={
-              <SeccionProtegida nombre="la lista de pacientes">
-                <PaginaPacientes />
-              </SeccionProtegida>
-            }
-          />
-
-          <Route
-            path="/pacientes/:id"
-            element={
-              <SeccionProtegida nombre="el detalle del paciente">
-                <PaginaDetallePaciente />
-              </SeccionProtegida>
-            }
-          />
-
-          <Route
-            path="/perfil"
-            element={
-              <SeccionProtegida nombre="el perfil">
-                <PaginaPerfil />
-              </SeccionProtegida>
-            }
-          />
-
-          <Route
-            path="/citas"
-            element={
-              <SeccionProtegida nombre="las citas">
-                <PaginaCitas />
-              </SeccionProtegida>
-            }
-          />
-
-          <Route
-            path="/citas/nueva"
-            element={
-              <SeccionProtegida nombre="el formulario de cita">
-                <PaginaNuevaCita />
-              </SeccionProtegida>
-            }
-          />
-
-          <Route
-            path="/historial"
-            element={
-              <SeccionProtegida nombre="el historial de citas">
-                <PaginaHistorialCitas />
-              </SeccionProtegida>
-            }
-          />
-
-          <Route path="/sin-acceso" element={<PaginaSinAcceso />} />
-
-          <Route element={<RutaProtegida rolesPermitidos={["GERENCIA"]} />}>
+        <Route element={<RutaProtegida />}>
+          <Route element={<Layout />}>
             <Route
-              path="/reportes"
+              path="/"
               element={
-                <SeccionProtegida nombre="los reportes">
-                  <PaginaReportes />
+                <SeccionProtegida nombre="el dashboard">
+                  <PaginaDashboard />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route
+              path="/pacientes"
+              element={
+                <SeccionProtegida nombre="la lista de pacientes">
+                  <PaginaPacientes />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route
+              path="/pacientes/:id"
+              element={
+                <SeccionProtegida nombre="el detalle del paciente">
+                  <PaginaDetallePaciente />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route
+              path="/perfil"
+              element={
+                <SeccionProtegida nombre="el perfil">
+                  <PaginaPerfil />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route
+              path="/citas"
+              element={
+                <SeccionProtegida nombre="las citas">
+                  <PaginaCitas />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route
+              path="/citas/nueva"
+              element={
+                <SeccionProtegida nombre="el formulario de cita">
+                  <PaginaNuevaCita />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route
+              path="/historial"
+              element={
+                <SeccionProtegida nombre="el historial de citas">
+                  <PaginaHistorialCitas />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route
+              path="/sin-acceso"
+              element={
+                <SeccionProtegida nombre="la página de acceso restringido">
+                  <PaginaSinAcceso />
+                </SeccionProtegida>
+              }
+            />
+
+            <Route element={<RutaProtegida rolesPermitidos={["GERENCIA"]} />}>
+              <Route
+                path="/reportes"
+                element={
+                  <SeccionProtegida nombre="los reportes">
+                    <PaginaReportes />
+                  </SeccionProtegida>
+                }
+              />
+            </Route>
+
+            <Route
+              path="*"
+              element={
+                <SeccionProtegida nombre="la página solicitada">
+                  <PaginaNotFound />
                 </SeccionProtegida>
               }
             />
           </Route>
-
-          <Route path="*" element={<PaginaNotFound />} />
         </Route>
-      </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }
 

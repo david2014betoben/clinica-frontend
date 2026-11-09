@@ -1,9 +1,7 @@
-import { useState } from "react";
-
+import { useMemo, useState } from "react";
 import type { Metrica } from "../types";
 import { StatusBadge } from "../componentes/StatusBadge";
 import { useDashboard } from "../features/dashboard/hooks/useDashboard";
-
 import { AlertaBanner } from "../shared/components/ui/AlertaBanner";
 import { SkeletonMetricCard } from "../shared/components/ui/Skeletons";
 import { Spinner } from "../shared/components/ui/Spinner";
@@ -29,6 +27,10 @@ const estilosPorTendencia: Record<
   },
 };
 
+const formatoDecimal = new Intl.NumberFormat("es-BO", {
+  maximumFractionDigits: 1,
+});
+
 export function PaginaDashboard() {
   const [mantenimiento, setMantenimiento] = useState(false);
 
@@ -39,40 +41,89 @@ export function PaginaDashboard() {
     dateStyle: "long",
   }).format(new Date());
 
-  const metricas: Metrica[] = [
-    {
-      id: "pacientes",
-      titulo: "Pacientes",
-      valor: totales?.pacientes ?? "—",
-      descripcion: "Pacientes registrados",
-      tendencia: "positiva",
-      icono: "👥",
-    },
-    {
-      id: "medicos",
-      titulo: "Médicos",
-      valor: totales?.medicos ?? "—",
-      descripcion: "Médicos registrados",
-      tendencia: "neutra",
-      icono: "🩺",
-    },
-    {
-      id: "programadas",
-      titulo: "Citas programadas",
-      valor: totales?.programadas ?? "—",
-      descripcion: "Citas pendientes de atención de todas las fechas",
-      tendencia: "negativa",
-      icono: "📅",
-    },
-    {
-      id: "completadas",
-      titulo: "Completadas hoy",
-      valor: totales?.completadas ?? "—",
-      descripcion: "Citas de hoy con estado completada",
-      tendencia: "positiva",
-      icono: "✅",
-    },
-  ];
+  const analitica = useMemo(() => {
+    if (!totales) return null;
+
+    const porcentajeCompletadasHoy =
+      totales.citasHoy > 0
+        ? (totales.completadas / totales.citasHoy) * 100
+        : null;
+
+    const pacientesPorMedico =
+      totales.medicos > 0 ? totales.pacientes / totales.medicos : null;
+
+    return {
+      porcentajeCompletadasHoy,
+      pacientesPorMedico,
+    };
+  }, [totales]);
+
+  const metricas = useMemo<Metrica[]>(
+    () => [
+      {
+        id: "pacientes",
+        titulo: "Pacientes",
+        valor: totales?.pacientes ?? "—",
+        descripcion: "Pacientes registrados",
+        tendencia: "positiva",
+        icono: "👥",
+      },
+      {
+        id: "medicos",
+        titulo: "Médicos",
+        valor: totales?.medicos ?? "—",
+        descripcion: "Médicos registrados",
+        tendencia: "neutra",
+        icono: "🩺",
+      },
+      {
+        id: "programadas",
+        titulo: "Citas programadas",
+        valor: totales?.programadas ?? "—",
+        descripcion: "Pendientes de atención de todas las fechas",
+        tendencia: "negativa",
+        icono: "📅",
+      },
+      {
+        id: "completadas",
+        titulo: "Completadas hoy",
+        valor: totales?.completadas ?? "—",
+        descripcion: "Citas de hoy con estado completada",
+        tendencia: "positiva",
+        icono: "✅",
+      },
+      {
+        id: "porcentaje-completadas",
+        titulo: "Completadas del día",
+        valor:
+          analitica?.porcentajeCompletadasHoy != null
+            ? `${formatoDecimal.format(analitica.porcentajeCompletadasHoy)}%`
+            : "—",
+        descripcion: totales
+          ? totales.citasHoy > 0
+            ? `${totales.completadas} de ${totales.citasHoy} citas de hoy, incluyendo todos los estados`
+            : "Sin citas con fecha de hoy"
+          : "Proporción de citas completadas hoy",
+        tendencia: "neutra",
+        icono: "📊",
+      },
+      {
+        id: "pacientes-por-medico",
+        titulo: "Pacientes por médico",
+        valor:
+          analitica?.pacientesPorMedico != null
+            ? formatoDecimal.format(analitica.pacientesPorMedico)
+            : "—",
+        descripcion:
+          totales?.medicos === 0
+            ? "No hay médicos registrados"
+            : "Relación global de registros; no indica asignaciones",
+        tendencia: "neutra",
+        icono: "⚖️",
+      },
+    ],
+    [totales, analitica],
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1680px] min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
@@ -103,7 +154,8 @@ export function PaginaDashboard() {
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             {cargando && <Spinner mensaje="Actualizando métricas..." />}
-            {cargando ? "Actualizando..." : "Actualizar"}
+
+            {cargando ? "Actualizando..." : "Actualizar datos"}
           </button>
         </div>
       </header>
@@ -174,8 +226,8 @@ export function PaginaDashboard() {
               Cargando métricas...
             </span>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-              {Array.from({ length: 4 }, (_, indice) => (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+              {Array.from({ length: 6 }, (_, indice) => (
                 <SkeletonMetricCard key={indice} />
               ))}
             </div>
@@ -184,14 +236,14 @@ export function PaginaDashboard() {
           <AlertaBanner
             tipo="error"
             titulo="No se pudieron cargar las métricas"
-            mensaje="Comprueba tu conexión e intenta nuevamente."
+            mensaje={error}
             accion={{
               label: "Reintentar",
               onClick: () => void actualizarMetricas(),
             }}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
             {metricas.map((metrica) => {
               const estilo = estilosPorTendencia[metrica.tendencia];
 

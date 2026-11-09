@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-
 import { api } from "../lib/axios";
 import { extraerMensajeError } from "../lib/errorHandler";
 
@@ -16,6 +15,7 @@ interface TotalesDashboard {
   medicos: number;
   programadas: number;
   completadas: number;
+  citasHoy: number;
 }
 
 interface DashboardState {
@@ -61,7 +61,7 @@ export const useDashboardStore = create<DashboardState>()(
         try {
           const hoy = obtenerFechaBolivia();
 
-          const [pacientes, medicos, programadas, completadas] =
+          const [pacientes, medicos, programadas, completadas, citasHoy] =
             await Promise.all([
               api.get<RespuestaListado>("/pacientes"),
 
@@ -79,6 +79,12 @@ export const useDashboardStore = create<DashboardState>()(
                   fecha: hoy,
                 },
               }),
+
+              api.get<RespuestaListado>("/citas", {
+                params: {
+                  fecha: hoy,
+                },
+              }),
             ]);
 
           if (numeroCarga !== ultimaCarga) return;
@@ -90,6 +96,7 @@ export const useDashboardStore = create<DashboardState>()(
                 medicos: obtenerTotal(medicos.data),
                 programadas: obtenerTotal(programadas.data),
                 completadas: obtenerTotal(completadas.data),
+                citasHoy: obtenerTotal(citasHoy.data),
               },
               cargando: false,
               error: null,
